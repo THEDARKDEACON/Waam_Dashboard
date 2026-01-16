@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Live Sensor</title>
+</head>
+<body>
+
+<h2>Temperature1: <span id="temp1">--</span> °C</h2>
+<h2>Temperature2: <span id="temp2">--</span> °C</h2>
+<h2>Temperature3: <span id="temp3">--</span> °C</h2>
+<h2>Temperature4: <span id="temp4">--</span> °C</h2>
+<h2>-----</h2>
+<h2>Voltage: <span id="V">--</span> V</h2>
+<h2>-----</h2>
+<h2>Current: <span id="C">--</span> A</h2>
+<h2>-----</h2>
+<h2>Counts: <span id = "E">--</span></h2>
+
+
+<script>
+    // Connect to the websocket automatically  based on page hostname window.location.hostname
+    const wsUrl = "ws://192.168.0.102:5500";
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("Received data:", data);
+        document.getElementById("temp1").textContent = data["T1"];
+        document.getElementById("temp2").textContent = data["T2"];
+        document.getElementById("temp3").textContent = data["T3"];
+        document.getElementById("temp4").textContent = data["T4"];
+
+        document.getElementById("E").textContent = data["E"];
+        document.getElementById("V").textContent = data["V"];
+        document.getElementById("C").textContent = data["C"];
+
+
+
+    };
+
+    socket.onopen = () => console.log("Connected to " + wsUrl);
+    socket.onerror = (err) => console.error("WebSocket error:", err);
+</script>
+
+</body>
+</html>

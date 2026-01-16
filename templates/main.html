@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Robot Interface</title>
+    <script src="{{url_for('static', filename='socketIO.js')}}" type="module" defer></script>
+      <script src="{{url_for('static', filename='Scripts/chart.min.js')}}" type="module" defer></script>
+    <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
+    <script src="{{url_for('static', filename='Scripts/main.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/materials2.js')}}" defer></script>
+    <script src="{{url_for('static', filename='Scripts/robotDisplay2.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/robotDisplay.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/robot_socket.js')}}" type="module" defer></script>
+
+
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <button class="tab active" data-page="robot" >Robot Parameters</button>
+        <button class="tab" data-page="task_editor">Task Editor</button>
+        <button class="tab" data-page="jog">Jog</button>
+    </header>
+
+    <!-- Main content area -->
+    <main id="content">
+        <div class="robot-page">
+            <!-- Left navigation -->
+            <aside class="robot-nav">
+                <button class="nav-btn active" data-section="robot_settings">Robot Settings</button>
+                <button class="nav-btn" data-section="sensors">Sensors</button>
+                <button class="nav-btn" data-section="materials">Material Presets</button>
+            </aside>
+
+            <!-- Right content -->
+            <section class="robot-content" id="robot-content">
+                <!-- /////////////////////////////////////////////
+                 ////////////////////////////////////////////////////
+                 ///////////////Robot Settings //////////////////////
+                 ////////////////////////////////////////////////////
+                 ////////////////////////////////////////////////// -->
+                <div class="robot-settings">
+                    <div class="robot-3d">
+                        <img src="../static/Images/kuka.png" alt="KUKA Robot" />
+                    </div>
+
+                    <div class="bar">
+
+                    </div>
+
+                    <div class="robot-settings-panel">
+                        <h3>Home Position</h3>
+                        <div class="grid">
+                            <label>J1 <input type="number" step="0.01" value="0.00">°</label>
+                            <label>J2 <input type="number" step="0.01" value="0.00">°</label>
+                            <label>J3 <input type="number" step="0.01" value="0.00">°</label>
+                            <label>J4 <input type="number" step="0.01" value="0.00">°</label>
+                            <label>J5 <input type="number" step="0.01" value="0.00">°</label>
+                            <label>J6 <input type="number" step="0.01" value="0.00">°</label>
+                        </div>
+
+                        <h3 style="margin-top: 50px;">Tool Center Point</h3>
+                        <div class="grid">
+                            <label>X<input type="number" step="0.01" value="0.00"></label>
+                            <label>Y<input type="number" step="0.01" value="0.00"></label>
+                            <label>Z<input type="number" step="0.01" value="0.00"></label>
+                            <label>A<input type="number" step="0.01" value="0.00"></label>
+                            <label>B<input type="number" step="0.01" value="0.00"></label>
+                            <label>C<input type="number" step="0.01" value="0.00"></label>
+                        </div>
+
+                        <button class="update-btn">Update</button>
+                    </div>
+                </div>
+
+                <!-- /////////////////////////////////////////////
+                 ////////////////////////////////////////////////////
+                 ///////////////Sensors Page ////////////////////////
+                 ////////////////////////////////////////////////////
+                 ////////////////////////////////////////////////// -->
+                 <div class="sensors-container">
+                    <div class="sensors-left">
+                      <div class="monitoring-section">
+                        <h3>Monitoring</h3>
+                        <div class="monitoring-box">
+                          <p>Current: <span id="current_data">0.00</span> A</p>
+                          <p>Voltage: <span id="voltage_data">0.00</span> V</p>
+                          <p>Wire Feed Speed: <span id="WFS_data" >0.00 </span>mm/s</p>
+                        </div>
+                      </div>
+              
+                      <div class="control-section">
+                        <h3>Control</h3>
+                        <div class="control-box">
+                          <div class="control-row">
+                            <label>Current:</label>
+                            <input type="number" value="0.00" />
+                            <button>Set</button>
+                          </div>
+                          <div class="control-row">
+                            <label>Voltage:</label>
+                            <input type="number" value="0.00" />
+                            <button>Set</button>
+                          </div>
+                          <div class="control-row">
+                            <label>Wire Feed Speed:</label>
+                            <input type="number" value="0.00" />
+                            <button>Set</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+              
+                    <div class="sensors-divider"></div>
+              
+                    <div class="sensors-right">
+                      <div class="mic-section">
+                        <h4>Microphone</h4>
+                        <div class="mic-display"></div>
+                      </div>
+              
+                      <div class="thermocouple-section">
+                        <h4>Thermocouple</h4>
+                        <div class = "temp-display">
+                          <canvas class="temp-display-canvas"></canvas>
+                        </div>
+                        <p class="temperature-label">
+                          Average Temperature: <span id="temp_label">25.00</span>°C
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                <!-- /////////////////////////////////////////////
+                 ////////////////////////////////////////////////////
+                    ///////////////Materials Page //////////////////////
+                    ////////////////////////////////////////////////////
+                    ////////////////////////////////////////////////// -->
+                 <div class="materials-container">
+                    <h3>Materials</h3>
+                
+                    <div class="table-wrapper">
+                        <table id="materials-table">
+                        <thead>
+                            <tr>
+                            <th>Name</th>
+                            <th>Current</th>
+                            <th>Voltage</th>
+                            <th>Wire Feed Speed</th>
+                            <th>Travel Speed</th>
+                            <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-body"></tbody>
+                        </table>
+                    </div>
+                
+                    <hr class="divider" />
+                
+                    <div class="add-row">
+                        <input type="text" id="new-name" placeholder="Name" />
+                        <input type="number" id="new-current" placeholder="Current" />
+                        <input type="number" id="new-voltage" placeholder="Voltage" />
+                        <input type="number" id="new-wire" placeholder="Wire Feed Speed" />
+                        <input type="number" id="new-travel" placeholder="Travel Speed" />
+                        <button id="add-btn" class="add-btn">Add</button>
+                    </div>
+
+                
+            </section>
+        </div>
+
+
+
+        <!-- /////////////////////////////////////
+         ////////////////////////////////////////////////////
+         ////////////Task Editotr////////////////////////////////
+         //////////////////////////////////////////////////////////
+         ////////////////////////////////////////////////// -->
+
+         <div class="task_editor_container">
+            <div class="canvas_container">
+                <div class="viewer">
+                    <div class="viewer_header">
+                        <button class="viewer_tab active" data-page="G_code" >G_code View</button>
+                        <button class="viewer_tab" data-page="Robot_visual">Robot</button>
+                    </div>
+                    <div class="viewer_canvas">
+                        <canvas class="gcodeCanvas"></canvas>
+                        <canvas class="robotCanvas"></canvas>
+                    </div>
+              
+                </div>
+
+            </div>
+
+
+            <div class="task_properties_container">
+              <div class="viewer">
+                <div class="viewer_settings_header">
+                    <button class="viewer_settings_tab active" data-page="Setup" >Setup</button>
+                    <button class="viewer_settings_tab" data-page="code">Code Editor</button>
+                    <button class="viewer_settings_tab" data-page="monitoring">Monitoring</button>
+
+                </div>
+                <div class="task_content">
+
+                  <div class="setup">
+                    <div class="setup-content">
+
+                      <div class="files">
+                        <input type="file" id="fileInput" accept=".gcode" hidden/>
+                        <!-- Upload button -->
+                        <button id="upload-btn" class="upload-btn">Upload G-code file</button>
+                        <p id="file-status" class="file-status"></p>
+  
+                      </div>
+                      <!-- Threshold input -->
+                      <div class="input-group">
+                        <label for="threshold">Threshold:</label>
+                        <input type="number" id="threshold" value="3.00" step="0.01" /> mm
+                      </div>
+  
+                      <!-- Weld profile dropdown -->
+                      <div class="input-group">
+                        <label for="weld-profile">Weld Profile:</label>
+                        <select id="weld-profile">
+                          <option>Loading...</option>
+                        </select>
+                      </div>
+  
+                      <!-- Action buttons -->
+                      <div class="action-buttons">
+                        <button id="visualize-btn" class="action-btn">Visualize Path</button>
+                        <button id="simulate-btn" class="action-btn">Simulate</button>
+                      </div>
+                    </div>
+
+  
+                  </div>
+                  <div class="code" style="display: none;">
+  
+                  </div>
+                  <div class="monitor" style="display: none;">
+  
+                  </div>
+                </div>
+            </div>
+        
+            </div>
+         </div>
+
+
+        <!-- //////////////////////////////////////////////////
+         ////////////////////////////////////////////////////////////
+         ///////////////// Jog ///////////////////////////////////////
+         /////////////////////////////////////////////////////////////
+         ////////////////////////////////////////////////////////////// -->
+
+         <div class="jog-container">
+          <!-- Left side: 3D view -->
+          <div class="robot-viewer">
+            <canvas id = "robotCanvas"></canvas>
+          </div>
+
+          <!-- Right side: Controls -->
+          <div class="jog-controls">
+            <button class="home-btn">HOME</button>
+
+            <div class="joints-section">
+              <div class="joint-col">
+                <button>J1</button>
+                <button>J2</button>
+                <button>J3</button>
+                <button>J4</button>
+                <button>J5</button>
+                <button>J6</button>
+              </div>
+              <div class="joint-values">
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+                <input class="joint-angles" type="text" value="0.00°" readonly>
+              </div>
+
+              <div class="coord-col">
+                <button>X</button>
+                <button>Y</button>
+                <button>Z</button>
+                <button>A</button>
+                <button>B</button>
+                <button>C</button>
+              </div>
+              <div class="coord-values">
+                <input type="text" value="0.00" readonly>
+                <input type="text" value="0.00" readonly>
+                <input type="text" value="0.00" readonly>
+                <input type="text" value="0.00°" readonly>
+                <input type="text" value="0.00°" readonly>
+                <input type="text" value="0.00°" readonly>
+              </div>
+            </div>
+
+            <div class="speed-controls">
+              <button class="minus">−</button>
+              <button class="plus">+</button>
+            </div>
+
+            <div class="speed-slider">
+              <label for="speed">Speed</label>
+              <input type="range" id="speed" min="0" max="100" value="23">
+              <span id="speed-value">23%</span>
+            </div>
+          </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div>Servo: <span class="status on"></span></div>
+        <div>Mode: Manual</div>
+        <div>State: Real</div>
+    </footer>
+</body>
+</html>
