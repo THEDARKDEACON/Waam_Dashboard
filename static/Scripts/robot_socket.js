@@ -50,7 +50,7 @@ const tempChart = new Chart(ctx, {
 
 sensors.onmessage = (event) => {
     sensor_data = JSON.parse(event.data);
-    // console.log(sensor_data)
+    // console.log(sensor_data["T1"])
     current_data.textContent = sensor_data["C"]
     voltage_data.textContent = sensor_data["V"]
     wfs_data.textContent = sensor_data["E"]
@@ -59,10 +59,10 @@ sensors.onmessage = (event) => {
     chartData.labels.push(sensor_data["Time(S)"]);
     var average = Math.round((sensor_data.T1 + sensor_data.T2 + sensor_data.T3 + sensor_data.T4)/4)
     temp_label.textContent = average
-    chartData.datasets[0].data.push(sensor_data.T1);
-    chartData.datasets[1].data.push(sensor_data.T2);
-    chartData.datasets[2].data.push(sensor_data.T3);
-    chartData.datasets[3].data.push(sensor_data.T4);
+    chartData.datasets[0].data.push(sensor_data["T1"]);
+    chartData.datasets[1].data.push(sensor_data["T2"]);
+    chartData.datasets[2].data.push(sensor_data["T3"]);
+    chartData.datasets[3].data.push(sensor_data["T4"]);
 
     // Enforce rolling window
     if (chartData.labels.length > MAX_POINTS) {
