@@ -199,6 +199,16 @@ function exportCSV() {
     const rows = [header, ...logBuffer];
     const csv = rows.map(r => r.join(",")).join("\n");
 
+    // pywebview-safe file save
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.save_csv(csv);
+    } else {
+        // fallback for real browsers
+        browserDownload(csv);
+    }
+}
+
+function browserDownload(csv) {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -209,6 +219,7 @@ function exportCSV() {
 
     URL.revokeObjectURL(url);
 }
+
 
 // ===============================
 // SOCKET.IO EVENTS (UNCHANGED)
