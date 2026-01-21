@@ -1,94 +1,231 @@
-// import { setJointAngles } from "./kuka_comm.js";
-var angles = [0, 0, 0, 0, 0, 0]
-var sensor_data
-const socket = io("http://192.168.0.100:4900");
+// ===============================
+// GLOBAL STATE
+// ===============================
+var angles = [0, 0, 0, 0, 0, 0];
+var sensor_data = null;
+
+// WebSocket state
+let sensors = null;
+let reconnectTimer = null;
+let reconnectDelay = 1000;
+const MAX_RECONNECT_DELAY = 10000;
 const wsUrl = "ws://192.168.0.100:9900";
-const sensors = new WebSocket(wsUrl);
 
-const current_data = document.getElementById("current_data")
-const voltage_data = document.getElementById("voltage_data")
-const wfs_data = document.getElementById("WFS_data")
+// Logging state
+let isLogging = false;
+let logBuffer = [];
 
-const joint_values = document.querySelectorAll(".joint-angles")
-const MAX_POINTS = 16
+// ===============================
+// SOCKET.IO (UNCHANGED)
+// ===============================
+const socket = io("http://192.168.0.100:4900");
 
-const ctx = document.querySelector(".temp-display-canvas").getContext('2d')
-const temp_label = document.getElementById("temp_label")
+// ===============================
+// DOM ELEMENTS
+// ===============================
+const current_set_button = document.getElementById("current_set_button");
+const voltage_set_button = document.getElementById("voltage_set_button");
+const wfs_set_button = document.getElementById("wfs_set_button");
+const logButton = document.getElementById("log_button");
+
+const current_set_value = document.getElementById("current_set_value");
+const voltage_set_value = document.getElementById("voltage_set_value");
+const wfs_set_value = document.getElementById("wfs_set_value");
+
+const current_data = document.getElementById("current_data");
+const voltage_data = document.getElementById("voltage_data");
+const wfs_data = document.getElementById("WFS_data");
+
+const joint_values = document.querySelectorAll(".joint-angles");
+
+const ctx = document.querySelector(".temp-display-canvas").getContext("2d");
+const temp_label = document.getElementById("temp_label");
+
+// ===============================
+// CHART SETUP
+// ===============================
+const MAX_POINTS = 16;
 
 const chartData = {
     labels: [],
     datasets: [
-        { label: 'T1', data: [], borderWidth: 2 },
-        { label: 'T2', data: [], borderWidth: 2 },
-        { label: 'T3', data: [], borderWidth: 2 },
-        { label: 'T4', data: [], borderWidth: 2 }
+        { label: "T1", data: [], borderWidth: 2 },
+        { label: "T2", data: [], borderWidth: 2 },
+        { label: "T3", data: [], borderWidth: 2 },
+        { label: "T4", data: [], borderWidth: 2 }
     ]
 };
 
 const tempChart = new Chart(ctx, {
-    type: 'line',
+    type: "line",
     data: chartData,
     options: {
         animation: false,
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-            x: {
-                type: 'linear',
-                title: { display: true, text: 'Time (s)' }
-            },
-            y: {
-                title: { display: true, text: 'Temperature' }
-            }
+            x: { type: "linear", title: { display: true, text: "Time (s)" } },
+            y: { title: { display: true, text: "Temperature" } }
         },
-        plugins: {
-            legend: { display: true }
-        }
+        plugins: { legend: { display: true } }
     }
 });
 
+// ===============================
+// WEBSOCKET CONNECTION
+// ===============================
+function connectSensors() {
+    console.log("Connecting to sensor WebSocket...");
 
-sensors.onmessage = (event) => {
-    sensor_data = JSON.parse(event.data);
-    // console.log(sensor_data["T1"])
-    current_data.textContent = sensor_data["C"]
-    voltage_data.textContent = sensor_data["V"]
-    wfs_data.textContent = sensor_data["E"]
+    sensors = new WebSocket(wsUrl);
 
-    // Add x-axis label (time or index)
-    chartData.labels.push(sensor_data["Time(S)"]);
-    var average = Math.round((sensor_data.T1 + sensor_data.T2 + sensor_data.T3 + sensor_data.T4)/4)
-    temp_label.textContent = average
-    chartData.datasets[0].data.push(sensor_data["T1"]);
-    chartData.datasets[1].data.push(sensor_data["T2"]);
-    chartData.datasets[2].data.push(sensor_data["T3"]);
-    chartData.datasets[3].data.push(sensor_data["T4"]);
+    sensors.onopen = () => {
+        console.log("Sensor WebSocket connected");
+        reconnectDelay = 1000;
+    };
 
-    // Enforce rolling window
-    if (chartData.labels.length > MAX_POINTS) {
-        chartData.datasets.forEach(ds => ds.data.shift());
-        chartData.labels.shift();
-    }
+    sensors.onmessage = (event) => {
+        sensor_data = JSON.parse(event.data);
 
-    tempChart.update('none'); // no animation for real-time
+        // UI updates
+        current_data.textContent = sensor_data.C;
+        voltage_data.textContent = sensor_data.V;
+        wfs_data.textContent = sensor_data.E;
 
+        chartData.labels.push(sensor_data["Time(S)"]);
+
+        const avgTemp = Math.round(
+            (sensor_data.T1 + sensor_data.T2 + sensor_data.T3 + sensor_data.T4) / 4
+        );
+        temp_label.textContent = avgTemp;
+
+        chartData.datasets[0].data.push(sensor_data.T1);
+        chartData.datasets[1].data.push(sensor_data.T2);
+        chartData.datasets[2].data.push(sensor_data.T3);
+        chartData.datasets[3].data.push(sensor_data.T4);
+
+        if (chartData.labels.length > MAX_POINTS) {
+            chartData.labels.shift();
+            chartData.datasets.forEach(ds => ds.data.shift());
+        }
+
+        tempChart.update("none");
+
+        // Logging
+        if (isLogging) {
+            logBuffer.push([
+                new Date().toISOString(),
+                sensor_data.T1,
+                sensor_data.T2,
+                sensor_data.T3,
+                sensor_data.T4,
+                sensor_data.E,
+                sensor_data.V,
+                sensor_data.C
+            ]);
+        }
+    };
+
+    sensors.onclose = () => {
+        console.warn("Sensor WebSocket disconnected");
+        scheduleReconnect();
+    };
+
+    sensors.onerror = () => {
+        sensors.close();
+    };
 }
 
-// When socket connects, tell backend to start streaming
+function scheduleReconnect() {
+    if (reconnectTimer) return;
+
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+        connectSensors();
+    }, reconnectDelay);
+}
+
+connectSensors();
+
+// ===============================
+// SAFE COMMAND SENDER
+// ===============================
+function sendCommand(cmd) {
+    if (sensors && sensors.readyState === WebSocket.OPEN) {
+        sensors.send(cmd.endsWith("\n") ? cmd : cmd + "\n");
+    }
+}
+
+// ===============================
+// BUTTON HANDLERS
+// ===============================
+voltage_set_button.addEventListener("click", () => {
+    sendCommand(`s 1 ${voltage_set_value.value}`);
+});
+
+current_set_button.addEventListener("click", () => {
+    sendCommand(`s 2 ${current_set_value.value}`);
+});
+
+wfs_set_button.addEventListener("click", () => {
+    sendCommand(`s 3 ${wfs_set_value.value}`);
+});
+
+// ===============================
+// LOGGING TOGGLE
+// ===============================
+logButton.addEventListener("click", () => {
+    if (!isLogging) {
+        isLogging = true;
+        logBuffer = [];
+        logButton.textContent = "Stop Logging";
+        console.log("Logging started");
+    } else {
+        isLogging = false;
+        logButton.textContent = "Start Logging";
+        console.log("Logging stopped");
+        exportCSV();
+    }
+});
+
+// ===============================
+// CSV EXPORT
+// ===============================
+function exportCSV() {
+    if (logBuffer.length === 0) return;
+
+    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C"];
+    const rows = [header, ...logBuffer];
+    const csv = rows.map(r => r.join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sensor_log_${Date.now()}.csv`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
+// ===============================
+// SOCKET.IO EVENTS (UNCHANGED)
+// ===============================
 socket.on("connect", () => {
     socket.emit("start_stream");
     console.log("Connected to backend");
 });
 
-// Receive angles and update robot model
 socket.on("joint_angles", (angles2) => {
-    // angles is already in radians from backend
-    // console.log(angles)
     angles = angles2;
-    for (let index = 0; index < angles.length; index++) {
-        joint_values[index].value = angles[index];
-        
+    for (let i = 0; i < angles.length; i++) {
+        joint_values[i].value = angles[i];
     }
 });
 
-export {angles, sensor_data}
+// ===============================
+// EXPORTS
+// ===============================
+export { angles, sensor_data };

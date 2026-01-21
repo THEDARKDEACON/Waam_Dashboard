@@ -11,6 +11,8 @@
     <script src="{{url_for('static', filename='Scripts/robotDisplay2.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/robotDisplay.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/robot_socket.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/audio_visualizer.js')}}" type="module" defer></script>
+
 
 
 </head>
@@ -94,18 +96,18 @@
                         <div class="control-box">
                           <div class="control-row">
                             <label>Current:</label>
-                            <input type="number" value="0.00" />
-                            <button>Set</button>
+                            <input id ="current_set_value" type="number" value="0.00" />
+                            <button id="current_set_button">Set</button>
                           </div>
                           <div class="control-row">
                             <label>Voltage:</label>
-                            <input type="number" value="0.00" />
-                            <button>Set</button>
+                            <input id ="voltage_set_value" type="number" value="0.00" />
+                            <button id="voltage_set_button">Set</button>
                           </div>
                           <div class="control-row">
                             <label>Wire Feed Speed:</label>
-                            <input type="number" value="0.00" />
-                            <button>Set</button>
+                            <input id ="wfs_set_value" type="number" value="0.00" />
+                            <button id="wfs_set_button">Set</button>
                           </div>
                         </div>
                       </div>
@@ -116,7 +118,9 @@
                     <div class="sensors-right">
                       <div class="mic-section">
                         <h4>Microphone</h4>
-                        <div class="mic-display"></div>
+                        <div class="mic-display">
+                          <canvas id="visualizer"></canvas>
+                        </div>
                       </div>
               
                       <div class="thermocouple-section">

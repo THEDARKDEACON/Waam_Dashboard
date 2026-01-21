@@ -341,7 +341,10 @@ footer {
   position: relative;
 }
 
-
+#visualizer {
+  height: 100%;
+  width: 100%;
+}
 
 .temperature-label {
   text-align: right;
