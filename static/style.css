@@ -866,3 +866,23 @@ td input {
 .speed-slider span {
   font-weight: bold;
 }
+
+
+
+.logging_button{
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 20px;
+  width: 90%;
+  height: 50px;
+  align-self: center;
+  font-weight: bold;
+  cursor: pointer;
+  align-self: center;
+}
+
+.logging_button:hover{
+  background-color: #186e2c;
+}
