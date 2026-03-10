@@ -232,10 +232,44 @@ socket.on("connect", () => {
 socket.on("joint_angles", (angles2) => {
     angles = angles2;
     for (let i = 0; i < angles.length; i++) {
-        joint_values[i].value = angles[i];
+        joint_values[i].value = angles[i] * 57.2957795;
     }
 });
 
+const plus_button = document.querySelector(".plus")
+const minus_button = document.querySelector(".minus")
+
+plus_button.addEventListener("mousedown", ()=>{
+    socket.emit("jog_start", {
+        axis: "Z",
+        direction: 1,
+        step: 1, 
+        // speed: 2
+    })
+})
+
+plus_button.addEventListener("mouseup", ()=>{
+    socket.emit("jog_stop")
+})
+// plus_button.addEventListener("mouseleave", ()=>{
+//     socket.emit("jog_stop")
+// })
+
+minus_button.addEventListener("mousedown", ()=>{
+    socket.emit("jog_start", {
+        axis: "Z",
+        direction: -1,
+        step: 1,
+        // speed: 2
+    })
+})
+
+minus_button.addEventListener("mouseup", ()=>{
+    socket.emit("jog_stop")
+})
+// minus_button.addEventListener("mouseleave", ()=>{
+//     socket.emit("jog_stop")
+// })
 // ===============================
 // EXPORTS
 // ===============================
