@@ -10,7 +10,14 @@ from kuka import KUKA, ROBOT_IP
 from jogProducer import JogProducer
 
 # ---------------- Robot Init ----------------
-robot = KUKA(ROBOT_IP)
+robot = None
+
+
+def get_robot():
+    global robot
+    if robot is None:
+        robot = KUKA(ROBOT_IP)
+    return robot
 
 # ---------------- Flask Init ----------------
 app = Flask(
@@ -42,12 +49,19 @@ def parse_kuka_joints(msg):
 def stream_joint_states():
     while True:
         try:
-            msg = robot.read("$AXIS_ACT")
+            current_robot = get_robot()
+            msg = current_robot.read("$AXIS_ACT")
             angles = parse_kuka_joints(msg)
             socketio.emit("joint_angles", angles)
+        except ConnectionError as exc:
+            print("Robot stream connection lost:", exc)
+            time.sleep(1)
+            continue
         except Exception as e:
             print("Robot read error:", e)
-        # time.sleep(0.05)
+            time.sleep(0.1)
+            continue
+        time.sleep(0.05)
 
 # ---------------- Socket.IO Events ----------------
 @socketio.on("connect")
@@ -73,9 +87,13 @@ def jog_start(data):
         "X": 101, "Y": 102, "Z": 103, "A": 104, "B": 105, "C": 106
     }
     print("writing data ", data)
-    robot.write("gMode", 1)
-    robot.write("gJogAxis", axis_map[data["axis"]])
-    robot.write("gJogDir", int(data["direction"]))
+    try:
+        current_robot = get_robot()
+        current_robot.write("gMode", 1)
+        current_robot.write("gJogAxis", axis_map[data["axis"]])
+        current_robot.write("gJogDir", int(data["direction"]))
+    except ConnectionError as exc:
+        print("Jog start failed:", exc)
     # robot.write("gJogStep", float(data["step"]))
     # robot.write("gJogSpeed", float(data["speed"]))
     
@@ -83,7 +101,11 @@ def jog_start(data):
 @socketio.on("jog_stop")
 def jog_stop():
     print("sending stop signal")
-    robot.write("gJogDir", 0)
+    try:
+        current_robot = get_robot()
+        current_robot.write("gJogDir", 0)
+    except ConnectionError as exc:
+        print("Jog stop failed:", exc)
 
 # jogger = JogProducer(robot)
 
@@ -112,30 +134,36 @@ def run_program(data):
     points = data
     batch_size = len(points)
 
-    robot.write("gMode", 2)
-    robot.write("gBatchSize", batch_size)
+    try:
+        current_robot = get_robot()
+        current_robot.write("gMode", 2)
+        current_robot.write("gBatchSize", batch_size)
 
-    for i, p in enumerate(points, start=1):
-        kuka_pos = (
-            f"{{X {p['X']},Y {p['Y']},Z {p['Z']},"
-            f"A {p['A']},B {p['B']},C {p['C']}}}"
-        )
-        robot.write(f"gBatch[{i}]", kuka_pos)
+        for i, p in enumerate(points, start=1):
+            kuka_pos = (
+                f"{{X {p['X']},Y {p['Y']},Z {p['Z']},"
+                f"A {p['A']},B {p['B']},C {p['C']}}}"
+            )
+            current_robot.write(f"gBatch[{i}]", kuka_pos)
 
-    robot.write("gNewBatch", True)
+        current_robot.write("gNewBatch", True)
 
-    # Wait for robot to finish
-    while True:
-        done = robot.read("gProgramDone")
-        if done == "TRUE":
-            break
-        time.sleep(0.1)
+        # Wait for robot to finish
+        while True:
+            done = current_robot.read("gProgramDone")
+            if done == "TRUE":
+                break
+            time.sleep(0.1)
 
-    robot.write("gNewBatch", False)
-    robot.write("gMode", 1)
+        current_robot.write("gNewBatch", False)
+        current_robot.write("gMode", 1)
 
-    socketio.emit("program_done")
+        socketio.emit("program_done")
+    except ConnectionError as exc:
+        print("Run program failed:", exc)
+    except Exception as exc:
+        print("Unexpected error during run_program:", exc)
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=4900, debug=True)
+    socketio.run(app, host="0.0.0.0", port=4900, debug=True, use_reloader=True)

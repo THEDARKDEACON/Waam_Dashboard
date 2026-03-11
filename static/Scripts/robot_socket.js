@@ -1,7 +1,7 @@
 // ===============================
 // GLOBAL STATE
 // ===============================
-var angles = [0, 0, 0, 0, 0, 0];
+var angles = [0, -3.14/2, 3.14/2, 0, 0, 0];
 var sensor_data = null;
 
 // WebSocket state
@@ -37,6 +37,8 @@ const voltage_data = document.getElementById("voltage_data");
 const wfs_data = document.getElementById("WFS_data");
 
 const joint_values = document.querySelectorAll(".joint-angles");
+const jogButtons = document.querySelectorAll(".jog_buttons");
+let activeJogAxis = jogButtons.length ? jogButtons[0].textContent.trim() : "Z";
 
 const ctx = document.querySelector(".temp-display-canvas").getContext("2d");
 const temp_label = document.getElementById("temp_label");
@@ -239,34 +241,45 @@ socket.on("joint_angles", (angles2) => {
 const plus_button = document.querySelector(".plus")
 const minus_button = document.querySelector(".minus")
 
-plus_button.addEventListener("mousedown", ()=>{
-    socket.emit("jog_start", {
-        axis: "Z",
-        direction: 1,
-        step: 1, 
-        // speed: 2
-    })
-})
+function setActiveJogButton(button) {
+    jogButtons.forEach(btn => btn.classList.remove("active-jog"));
+    button.classList.add("active-jog");
+    activeJogAxis = button.dataset.axis || button.textContent.trim();
+}
 
-plus_button.addEventListener("mouseup", ()=>{
-    socket.emit("jog_stop")
-})
+jogButtons.forEach(button => {
+    button.dataset.axis = button.textContent.trim();
+    button.addEventListener("click", () => setActiveJogButton(button));
+});
+
+if (jogButtons.length) {
+    setActiveJogButton(jogButtons[0]);
+}
+
+const emitJogStart = (direction) => {
+    let payload = {
+        axis: activeJogAxis,
+        direction,
+        step: 1
+    }
+    console.log(payload)
+    socket.emit("jog_start", payload)
+}
+
+const emitJogStop = () => socket.emit("jog_stop")
+
+plus_button.addEventListener("mousedown", () => emitJogStart(1))
+
+plus_button.addEventListener("mouseup", emitJogStop)
+plus_button.addEventListener("mouseleave", emitJogStop)
 // plus_button.addEventListener("mouseleave", ()=>{
 //     socket.emit("jog_stop")
 // })
 
-minus_button.addEventListener("mousedown", ()=>{
-    socket.emit("jog_start", {
-        axis: "Z",
-        direction: -1,
-        step: 1,
-        // speed: 2
-    })
-})
+minus_button.addEventListener("mousedown", () => emitJogStart(-1))
 
-minus_button.addEventListener("mouseup", ()=>{
-    socket.emit("jog_stop")
-})
+minus_button.addEventListener("mouseup", emitJogStop)
+minus_button.addEventListener("mouseleave", emitJogStop)
 // minus_button.addEventListener("mouseleave", ()=>{
 //     socket.emit("jog_stop")
 // })

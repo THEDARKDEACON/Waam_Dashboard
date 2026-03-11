@@ -812,6 +812,13 @@ td input {
   font-weight: 500;
 }
 
+.joint-col button.active-jog,
+.coord-col button.active-jog {
+  border-color: #1c7eff;
+  box-shadow: 0 0 0 2px rgba(28, 126, 255, 0.35);
+  color: #1c7eff;
+}
+
 .joint-values input,
 .coord-values input {
   background-color: #777;
