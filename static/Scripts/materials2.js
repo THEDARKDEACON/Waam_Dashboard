@@ -89,11 +89,11 @@ fileInput.addEventListener("change", () => {
   }
 });
 
-// Buttons (placeholders for future actions)
-document.getElementById("visualize-btn").addEventListener("click", () => {
-  alert("Visualizing path...");
-});
+// // Buttons (placeholders for future actions)
+// document.getElementById("visualize-btn").addEventListener("click", () => {
+//   alert("Visualizing path...");
+// });
 
-document.getElementById("simulate-btn").addEventListener("click", () => {
-  alert("Simulation started...");
-});
+// document.getElementById("simulate-btn").addEventListener("click", () => {
+//   alert("Simulation started...");
+// });

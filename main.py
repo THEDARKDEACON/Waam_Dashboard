@@ -1,11 +1,16 @@
 import eventlet
 eventlet.monkey_patch()
 
+import io
+import zipfile
 import math
 import threading
 import time
-from flask import Flask, render_template
+from pathlib import Path
+
+from flask import Flask, render_template, request, send_file, jsonify
 from flask_socketio import SocketIO
+from gcode_pipeline import clean_and_transpile
 from kuka import KUKA, ROBOT_IP
 from jogProducer import JogProducer
 
@@ -31,6 +36,33 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 @app.route("/")
 def index():
     return render_template("main.html")
+
+
+@app.route("/api/gcode", methods=["POST"])
+def upload_gcode():
+    uploaded = request.files.get("file")
+    if not uploaded:
+        return jsonify({"error": "no file uploaded"}), 400
+
+    raw_text = uploaded.read().decode("utf-8", errors="replace")
+    candidate_name = Path(uploaded.filename or "").stem
+    program_name = (candidate_name or "WAAM_PART").upper()
+
+    result = clean_and_transpile(raw_text, program_name=program_name)
+
+    archive = io.BytesIO()
+    program_base = result["program_name"]
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr(f"{program_base}.src", result["src"])
+        zf.writestr(f"{program_base}.dat", result["dat"])
+
+    archive.seek(0)
+    return send_file(
+        archive,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{program_base}_krl.zip"
+    )
 
 # ---------------- Helpers ----------------
 def parse_kuka_joints(msg):
@@ -166,4 +198,4 @@ def run_program(data):
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=4900, debug=True, use_reloader=True)
+    socketio.run(app, host="0.0.0.0", port=4900, debug=False, use_reloader=False)

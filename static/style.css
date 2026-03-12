@@ -638,6 +638,37 @@ td input {
   font-size: 14px;
 }
 
+.loader {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  color: #1c7eff;
+  font-size: 14px;
+}
+
+.loader.active {
+  display: inline-flex;
+}
+
+.loader-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #1c7eff;
+  animation: loaderPulse 1s infinite ease-in-out;
+}
+
+@keyframes loaderPulse {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 /* Input sections */
 .input-group {
   display: flex;
@@ -814,9 +845,9 @@ td input {
 
 .joint-col button.active-jog,
 .coord-col button.active-jog {
-  border-color: #1c7eff;
-  box-shadow: 0 0 0 2px rgba(28, 126, 255, 0.35);
-  color: #1c7eff;
+  border-color: #ff2600;
+  box-shadow: 0 0 0 2px rgba(253, 5, 5, 0.35);
+  color: #f30404;
 }
 
 .joint-values input,
@@ -883,13 +914,80 @@ td input {
   border-radius: 10px;
   font-size: 20px;
   width: 90%;
-  height: 50px;
+  height: 80px;
   align-self: center;
   font-weight: bold;
   cursor: pointer;
   align-self: center;
+  padding: 2px;
+  margin: 10px;
 }
 
 .logging_button:hover{
   background-color: #186e2c;
 }
+
+.program-controls{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  justify-content: center;
+  gap: 10px;
+  width: 90%;
+}
+
+.program_control_button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 20px;
+  height: 50px;
+  align-self: center;
+  font-weight: bold;
+  cursor: pointer;
+  align-self: center;
+  /* padding: 10px; */
+  margin-top: 10px;
+
+}
+
+.program_control_button:hover{
+  background-color: #186e2c;
+}
+
+#pause {
+  background-color: #ffc107;
+}
+
+#pause:hover {
+  background-color: #d39e00;
+}
+
+#stop {
+  background-color: #dc3545;
+}
+
+#stop:hover {
+  background-color: #c82333;
+}
+
+.monitoring-section2 {
+  display: flex;
+  flex-direction: column;
+  height: 70%;
+}
+
+.monitoring2{
+  width: 90%;
+  height: 90%;
+}
+
+.setup-content{
+  height: 90%;
+}
+
+.monitor-section {
+  height: 90%;
+}
+
+
