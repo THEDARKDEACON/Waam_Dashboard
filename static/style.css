@@ -26,6 +26,14 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+:root {
+    --primary-foreground: #1c1f26;
+    --secondary-foreground: #303542;
+    --primary-background: #06080c;
+    --secondary-background: #222a3b;
+    --primary-font: white;
+}
+
 body {
     margin: 0;
     background: #2b2b2b;
@@ -87,7 +95,8 @@ footer {
 /* Left navigation pane */
 .robot-nav {
     width: 200px;
-    background: #f2f2f2;
+    background: var(--primary-foreground);
+    color: white;
     display: flex;
     flex-direction: column;
     margin: 5px;
@@ -103,7 +112,7 @@ footer {
 .robot-nav .nav-btn {
     background: none;
     border: none;
-    color: black;
+    color: white;
     text-align: left;
     padding: 12px 20px;
     cursor: pointer;
@@ -113,7 +122,7 @@ footer {
 }
 
 .robot-nav .nav-btn:hover {
-    background: #3c3c3c;
+    background: var(--primary-foreground);
 }
 
 .robot-nav .nav-btn.active {
@@ -124,7 +133,8 @@ footer {
 /* Right content area */
 .robot-content {
     flex: 1;
-    background: #dcdcdc;
+    background: var(--primary-foreground);
+    /* color: var(--primary-font); */
     padding: 20px;
     overflow-y: auto;
     margin: 5px 5px 5px 0;
@@ -170,7 +180,7 @@ footer {
 
 .robot-settings-panel h3 {
     margin-top: 0;
-    color: #333;
+    color: var(--primary-font);
 }
 
 .grid {
@@ -184,7 +194,7 @@ footer {
     align-items: center;
     margin-left: 10px;
     font-size: 14px;
-    color: #333;
+    color: var(--primary-font);
 }
 
 .grid input {
@@ -245,7 +255,7 @@ footer {
 
 .monitoring-box,
 .control-box {
-  background-color: #bfbfbf;
+  background-color: var(--secondary-foreground);
   border-radius: 10px;
   padding: 0 20px;
   width: 100%;
@@ -259,6 +269,7 @@ footer {
   display: grid;
   grid-template-columns: 7fr 1fr 1fr;
   justify-content: space-between;
+  color: var(--primary-font);
   /* margin: 6% 0; */
 }
 
@@ -266,6 +277,7 @@ footer {
   display: grid;
   grid-template-columns: 7fr 1fr 1fr;
   justify-content: space-between;
+  color: var(--primary-font);
   /* margin: 6% 0; */
   /* gap: 10px; */
   padding: 4%;
@@ -350,12 +362,12 @@ footer {
   text-align: right;
   font-size: 15px;
   margin-top: 8px;
-  color: #333;
+  color: var(--primary-font);
 }
 
 h3, h4 {
   margin-bottom: 8px;
-  color: #222;
+  color: var(--primary-font);
 }
 
 
@@ -378,7 +390,7 @@ h3, h4 {
 .table-wrapper {
   flex: 1;
   overflow-y: auto;
-  background: #dcdcdc;
+  background: var(--secondary-foreground);
   border-radius: 8px;
   
 }
@@ -395,14 +407,14 @@ th, td {
 }
 
 thead {
-  background: #d0d0d0;
+  background: var(--secondary-foreground);
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
 tr {
-  background: #ccc;
+  background: var(--secondary-background);
   border-radius: 8px;
   margin-bottom: 8px;
 }
@@ -440,18 +452,19 @@ td input {
   display: flex;
   justify-content: flex-start;
   gap: 10px;
-  background: #cfcfcf;
+  background: var(--secondary-background);
   border-radius: 8px;
   padding: 10px;
   align-items: center;
   position: sticky;
+  width: 100%;
   bottom: 0;
   z-index: 2;
 }
 
 /* Add-row inputs */
 .add-row input {
-  width: 80px;
+  /* width: 80px; */
   padding: 5px;
   border: none;
   border-radius: 4px;
@@ -486,14 +499,14 @@ td input {
 }
 
 .canvas_container {
-    background: #dcdcdc;
+    background: var(--primary-foreground);
     width: 50%;
     margin: 8px 4px 8px 8px;
     border-radius: 12px;
   }
   
   .task_properties_container {
-    background: #dcdcdc;
+    background: var(--primary-foreground);
     margin: 8px 8px 8px 4px;
     width: 50%;
     border-radius: 12px;
@@ -680,6 +693,7 @@ td input {
 
 .input-group label {
   font-weight: 500;
+  color: var(--primary-font);
   flex: 1;
 }
 
@@ -745,7 +759,7 @@ td input {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #d9d9d9;
+  background-color: var(--primary-foreground);
   border-radius: 10px;
   padding: 10px;
   justify-content: space-between;
@@ -753,7 +767,7 @@ td input {
 
 .robot-viewer {
   flex: 1;
-  background-color: #cfcfcf;
+  background-color: var(--primary-foreground);
   border-radius: 8px;
   width: 100%;
   height: 100%;
@@ -778,7 +792,7 @@ td input {
 /* RIGHT SIDE */
 .jog-controls {
   flex: 1;
-  background-color: #d9d9d9;
+  background-color: var(--primary-foreground);
   border-radius: 10px;
   display: grid;
   grid-template-rows: 2fr 6fr 2fr 1fr;
@@ -837,7 +851,7 @@ td input {
 .joint-col button,
 .coord-col button {
   background-color: #f0f0f0;
-  border: 1px solid #999;
+  border: 2px solid #999;
   border-radius: 8px;
   padding: 4px 12px;
   font-weight: 500;
@@ -893,6 +907,7 @@ td input {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  color: var(--primary-font);
   width: 90%;
 }
 
@@ -903,6 +918,7 @@ td input {
 
 .speed-slider span {
   font-weight: bold;
+  color: white;
 }
 
 
@@ -956,11 +972,11 @@ td input {
 }
 
 #pause {
-  background-color: #ffc107;
+  background-color: #b48a0d;
 }
 
 #pause:hover {
-  background-color: #d39e00;
+  background-color: #806002;
 }
 
 #stop {
@@ -968,7 +984,7 @@ td input {
 }
 
 #stop:hover {
-  background-color: #c82333;
+  background-color: #8b1521;
 }
 
 .monitoring-section2 {

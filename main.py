@@ -198,4 +198,4 @@ def run_program(data):
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=4900, debug=False, use_reloader=False)
+    socketio.run(app, host="0.0.0.0", port=4900, debug=True, use_reloader=True)
