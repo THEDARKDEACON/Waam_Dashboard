@@ -56,7 +56,8 @@ def upload_gcode():
     result = clean_and_transpile(raw_text, program_name=program_name)
     global toolpath_segments
     toolpath_segments = result.get("segments", [])
-
+    print(toolpath_segments)
+    
     archive = io.BytesIO()
     program_base = result["program_name"]
     with zipfile.ZipFile(archive, "w") as zf:
@@ -123,6 +124,7 @@ def stream_joint_states():
 @socketio.on("connect")
 def on_connect():
     print("Frontend connected")
+    print("robot status: ", robot_online)
     socketio.emit("robot_status", {"online": robot_online})
     broadcast_admin_state()
 
@@ -289,6 +291,56 @@ def run_program(data):
         print("Run program failed:", exc)
     except Exception as exc:
         print("Unexpected error during run_program:", exc)
+        
+# ---------------- Program Execution ----------------
+@socketio.on("run_program_local")
+def run_program_local():
+    """
+    data = [
+      {X,Y,Z,A,B,C},
+      {X,Y,Z,A,B,C},
+      ...
+    ]
+    """
+    
+    if len(toolpath_segments) == 0:
+        return
+    
+    for segment in toolpath_segments:
+        torch_state = segment["torch_state"]
+        points = segment["points"]
+    
+        batch_size = len(points)
+
+        try:
+            current_robot = get_robot()
+            current_robot.write("gMode", 2)
+            current_robot.write("gBatchSize", batch_size)
+
+            for i, p in enumerate(points, start=1):
+                kuka_pos = (
+                    f"{{X {p[0]},Y {p[1]},Z {p[2]},"
+                    f"A 0,B 0,C 0}}"
+                )
+                current_robot.write(f"gBatch[{i}]", kuka_pos)
+
+            current_robot.write("gNewBatch", True)
+
+            # Wait for robot to finish
+            while True:
+                done = current_robot.read("gProgramDone")
+                if done == "TRUE":
+                    break
+                time.sleep(0.1)
+
+            current_robot.write("gNewBatch", False)
+            current_robot.write("gMode", 1)
+
+            socketio.emit("program_done")
+        except ConnectionError as exc:
+            print("Run program failed:", exc)
+        except Exception as exc:
+            print("Unexpected error during run_program:", exc)
 
 # ---------------- Main ----------------
 if __name__ == "__main__":

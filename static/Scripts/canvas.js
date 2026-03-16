@@ -1,5 +1,6 @@
 import * as THREE from '../three/build/three.module.js';
 import { OrbitControls } from '../three/examples/jsm/controls/OrbitControls.js';
+import { socket } from './robot_socket.js';
 
 function init(){// Scene setup
 const scene = new THREE.Scene();
@@ -74,6 +75,11 @@ fileInput?.addEventListener('change', async (e) => {
     }
 });
 
+const run_program_button = document.getElementById("run_program_local")
+run_program_button.addEventListener("click", ()=>{
+    socket.emit("run_program_local")
+})
+
 generateButton?.addEventListener('click', async () => {
     if (!selectedGcodeFile) {
         fileStatus.textContent = "Select a G-code file before generating KRL.";
@@ -85,6 +91,7 @@ generateButton?.addEventListener('click', async () => {
     try {
         const downloadName = await uploadGcodeAndDownload(selectedGcodeFile);
         fileStatus.textContent = `Downloaded ${downloadName}`;
+        run_program_button.style.display = "block"
     } catch (err) {
         console.error("KRL generation failed", err);
         fileStatus.textContent = `Generation failed: ${err?.message || err}`;
