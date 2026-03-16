@@ -14,9 +14,47 @@ except Exception as e:
     plt = None
 
 
-LIN_RE = re.compile(r'LIN\s*\{([^}]*)\}', re.IGNORECASE)
+LIN_RE = re.compile(r'OFFSET_POS = \s*\{([^}]*)\}', re.IGNORECASE)
 OUT_RE = re.compile(r'\$OUT\s*\[\s*(\d+)\s*\]\s*=\s*(TRUE|FALSE)', re.IGNORECASE)
 COORD_RE = re.compile(r'([XYZ])\s*([-+]?[0-9]*\.?[0-9]+)')
+
+
+def extract_toolpath_segments_from_text(src_text: str):
+    segments = []
+    current_state = "FALSE"
+    current_segment = None
+
+    for ln in src_text.splitlines():
+        line = ln.strip()
+        if not line:
+            continue
+
+        m_out = OUT_RE.search(line)
+        if m_out:
+            new_state = m_out.group(2).upper()
+            if new_state != current_state:
+                current_state = new_state
+                current_segment = None
+            continue
+
+        m_lin = LIN_RE.search(line)
+        if not m_lin:
+            continue
+
+        coords = {'X': None, 'Y': None, 'Z': None}
+        for cm in COORD_RE.finditer(m_lin.group(1)):
+            coords[cm.group(1).upper()] = float(cm.group(2))
+
+        if None in coords.values():
+            continue
+
+        if current_segment is None or current_segment["torch_state"] != current_state:
+            current_segment = {"torch_state": current_state, "points": []}
+            segments.append(current_segment)
+
+        current_segment["points"].append([coords['X'], coords['Y'], coords['Z']])
+
+    return segments
 
 
 def parse_src(path):

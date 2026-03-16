@@ -234,7 +234,13 @@ socket.on("connect", () => {
 socket.on("joint_angles", (angles2) => {
     angles = angles2;
     for (let i = 0; i < angles.length; i++) {
-        joint_values[i].value = angles[i] * 57.2957795;
+        joint_values[i].value = (angles[i] * 57.2957795).toFixed(2);
+    }
+});
+
+socket.on("cartesian_coords", (coords) => {
+    for (let i = 0; i < coords.length; i++) {
+        cart_values[i].value = Number(coords[i]).toFixed(2);
     }
 });
 
@@ -271,7 +277,7 @@ const emitJogStop = () => socket.emit("jog_stop")
 plus_button.addEventListener("mousedown", () => emitJogStart(1))
 
 plus_button.addEventListener("mouseup", emitJogStop)
-plus_button.addEventListener("mouseleave", emitJogStop)
+// plus_button.addEventListener("mouseleave", emitJogStop)
 // plus_button.addEventListener("mouseleave", ()=>{
 //     socket.emit("jog_stop")
 // })
@@ -279,11 +285,11 @@ plus_button.addEventListener("mouseleave", emitJogStop)
 minus_button.addEventListener("mousedown", () => emitJogStart(-1))
 
 minus_button.addEventListener("mouseup", emitJogStop)
-minus_button.addEventListener("mouseleave", emitJogStop)
+// minus_button.addEventListener("mouseleave", emitJogStop)
 // minus_button.addEventListener("mouseleave", ()=>{
 //     socket.emit("jog_stop")
 // })
 // ===============================
 // EXPORTS
 // ===============================
-export { angles, sensor_data };
+export { angles, sensor_data, socket };

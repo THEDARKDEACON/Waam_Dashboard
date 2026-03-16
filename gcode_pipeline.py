@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple
 
 from gcode_cleaner import GCodeCleaner
 from g_k_transpiler_clean import TunedTranspiler, HEADER_DAT
+from visualize_toolpath import extract_toolpath_segments_from_text
 
 
 def clean_gcode_text(raw_gcode: str) -> Tuple[List[str], str, Dict[str, int]]:
@@ -39,10 +40,12 @@ def clean_and_transpile(raw_gcode: str, program_name: str = "WAAM_PART") -> Dict
     """
     cleaned_lines, cleaned_text, stats = clean_gcode_text(raw_gcode)
     src_content, dat_content = transpile_cleaned_gcode(cleaned_lines, program_name=program_name)
+    segments = extract_toolpath_segments_from_text(src_content)
     return {
         "cleaned_gcode": cleaned_text,
         "src": src_content,
         "dat": dat_content,
         "program_name": program_name,
-        "stats": stats
+        "stats": stats,
+        "segments": segments
     }

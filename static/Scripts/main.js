@@ -1,9 +1,92 @@
 // listen for page loads
 import { init } from './canvas.js';
+import { socket } from './robot_socket.js';
 
 document.addEventListener("DOMContentLoaded", () => {
 
     init(); // initialize the 3D canvas
+    const robotStatusDot = document.getElementById('robot-status-dot');
+    const robotStatusText = document.getElementById('robot-status-text');
+    const adminButton = document.getElementById('admin-btn');
+    const adminStateText = document.getElementById('admin-state');
+    const adminModal = document.getElementById('admin-modal');
+    const adminModalMessage = document.getElementById('admin-modal-message');
+    const adminModalAccept = document.getElementById('admin-modal-accept');
+    const adminModalDecline = document.getElementById('admin-modal-decline');
+    let isAdmin = false;
+
+    const formatSid = (sid) => sid ? `${sid.slice(0, 6)}...${sid.slice(-4)}` : "Unknown";
+
+    const updateRobotStatus = (online) => {
+        if (!robotStatusDot || !robotStatusText) return;
+        robotStatusDot.classList.toggle('online', online);
+        robotStatusDot.classList.toggle('offline', !online);
+        robotStatusText.textContent = online ? "Online" : "Offline";
+    };
+
+    const hideAdminModal = () => {
+        adminModal?.classList.remove('visible');
+    };
+
+    adminButton?.addEventListener('click', () => {
+        console.log(isAdmin ? "Releasing admin control" : "Requesting admin control");
+        if (isAdmin) {
+            socket.emit("release_admin");
+        } else {
+            socket.emit("request_admin");
+        }
+    });
+
+    adminModalAccept?.addEventListener('click', () => {
+        socket.emit('admin_relinquish_response', { accept: true });
+        hideAdminModal();
+    });
+
+    adminModalDecline?.addEventListener('click', () => {
+        socket.emit('admin_relinquish_response', { accept: false });
+        hideAdminModal();
+    });
+
+    socket.on("robot_status", (data) => {
+        updateRobotStatus(Boolean(data?.online));
+    });
+
+    socket.on("admin_update", (data) => {
+        const currentSid = socket.id;
+        isAdmin = data.admin_sid === currentSid;
+        if (adminButton) {
+            adminButton.textContent = isAdmin ? "Release Admin" : "Claim Admin";
+        }
+        if (adminStateText) {
+            if (data.admin_sid) {
+                adminStateText.textContent = isAdmin ? "You are controlling the robot." : `Controlled by ${formatSid(data.admin_sid)}`;
+            } else {
+                adminStateText.textContent = "No one is controlling the robot.";
+            }
+            if (data.pending_sid && !isAdmin) {
+                adminStateText.textContent += ` | Request pending from ${formatSid(data.pending_sid)}`;
+            }
+        }
+    });
+
+    socket.on("admin_relinquish_request", (data) => {
+        if (!adminModalMessage) return;
+        adminModalMessage.textContent = `User ${formatSid(data?.requester_sid)} requests control.`;
+        adminModal?.classList.add('visible');
+    });
+
+    socket.on("admin_request_denied", () => {
+        if (adminStateText) {
+            adminStateText.textContent = "Your admin request was denied.";
+        }
+    });
+
+    socket.on("admin_granted", () => {
+        if (adminStateText) {
+            adminStateText.textContent = "You now control the robot.";
+        }
+    });
+
 
     const robot_parameters_btn = document.querySelector('button[data-page="robot"]');
     const task_editor_btn = document.querySelector('button[data-page="task_editor"]');

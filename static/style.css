@@ -78,11 +78,75 @@ main {
     font-family: 'Manjari';
 }
 
-footer {
+footer.app-footer {
     display: flex;
     justify-content: space-between;
-    padding: 8px 16px;
+    align-items: center;
+    padding: 10px 20px;
     background: #1f1f1f;
+    border-top: 1px solid #333;
+    font-size: 14px;
+}
+
+.footer-status,
+.footer-admin,
+.footer-state {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    background: #a62a2a;
+}
+
+.status-dot.online {
+    background: #1c7eff;
+}
+
+.admin-btn {
+    background: #1c7eff;
+    border: none;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.admin-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.admin-modal.visible {
+    display: flex;
+}
+
+.admin-modal-content {
+    background: #1c1c1c;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #444;
+    color: white;
+    max-width: 320px;
+    text-align: center;
+}
+
+.admin-modal-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
 }
 
 

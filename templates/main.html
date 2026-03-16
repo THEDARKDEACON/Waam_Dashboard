@@ -5,12 +5,12 @@
     <title>Robot Interface</title>
     <script src="{{url_for('static', filename='socketIO.js')}}" type="module" defer></script>
       <script src="{{url_for('static', filename='Scripts/chart.min.js')}}" type="module" defer></script>
-    <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
-    <script src="{{url_for('static', filename='Scripts/main.js')}}" type="module" defer></script>
+      <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
+      <script src="{{url_for('static', filename='Scripts/robot_socket.js')}}" type="module" defer></script>
+      <script src="{{url_for('static', filename='Scripts/main.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/materials2.js')}}" defer></script>
     <script src="{{url_for('static', filename='Scripts/robotDisplay2.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/robotDisplay.js')}}" type="module" defer></script>
-    <script src="{{url_for('static', filename='Scripts/robot_socket.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/audio_visualizer.js')}}" type="module" defer></script>
 
 
@@ -316,12 +316,12 @@
                 <button class = "jog_buttons">C</button>
               </div>
               <div class="coord-values">
-                <input type="text" value="0.00" readonly>
-                <input type="text" value="0.00" readonly>
-                <input type="text" value="0.00" readonly>
-                <input type="text" value="0.00°" readonly>
-                <input type="text" value="0.00°" readonly>
-                <input type="text" value="0.00°" readonly>
+                <input class="coordinates" type="text" value="0.00" readonly>
+                <input class="coordinates" type="text" value="0.00" readonly>
+                <input class="coordinates" type="text" value="0.00" readonly>
+                <input class="coordinates" type="text" value="0.00°" readonly>
+                <input class="coordinates" type="text" value="0.00°" readonly>
+                <input class="coordinates" type="text" value="0.00°" readonly>
               </div>
             </div>
 
@@ -341,10 +341,26 @@
     </main>
 
     <!-- Footer -->
-    <footer>
-        <div>Servo: <span class="status on"></span></div>
-        <div>Mode: Manual</div>
-        <div>State: Real</div>
+    <footer class="app-footer">
+        <div class="footer-status">
+            <span>Robot:</span>
+            <span id="robot-status-dot" class="status-dot offline"></span>
+            <span id="robot-status-text">Offline</span>
+        </div>
+        <div class="footer-admin">
+            <button id="admin-btn" class="admin-btn">Claim Admin</button>
+            <span id="admin-state">No one is controlling the robot.</span>
+        </div>
+        <div class="footer-state">State: Real</div>
     </footer>
+    <div id="admin-modal" class="admin-modal hidden">
+        <div class="admin-modal-content">
+            <p id="admin-modal-message">Someone has requested control.</p>
+            <div class="admin-modal-actions">
+                <button id="admin-modal-accept" class="action-btn">Relinquish Control</button>
+                <button id="admin-modal-decline" class="action-btn">Keep Control</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

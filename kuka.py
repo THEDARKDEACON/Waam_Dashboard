@@ -2,6 +2,7 @@
 import socket
 import threading
 import time
+import math
 
 ROBOT_IP = '172.31.1.147'
 KVP_JOINT_COMMAND_VARIABLE = 'COM_E6AXIS'
@@ -157,3 +158,38 @@ def radians_to_degrees(joint_states: list):
         degrees_list.append(round(i * 57.2957795, 6))
 
     return degrees_list
+
+def parse_kuka_coords(msg):
+    data = {}
+    parts = msg.replace("{", "").replace("}", "").replace("E6POS:", "").split(",")
+    data2 = []
+    for p in parts:
+        p = p.strip()
+        if p.startswith("X") or p.startswith("Y") or p.startswith("Z") or p.startswith("A") or p.startswith("B") or p.startswith("C"):
+            key, val = p.split(" ")
+            data[key] = float(val)
+            data2.append(val)
+    return data2
+    # return [data[f"A{i}"] for i in range(1, 7)]
+
+def parse_kuka_joints(msg):
+    data = {}
+    parts = msg.replace("{", "").replace("}", "").replace("E6AXIS:", "").split(",")
+
+    for p in parts:
+        p = p.strip()
+        if p.startswith("A"):
+            key, val = p.split(" ")
+            data[key] = float(val)
+
+    return [math.radians(data[f"A{i}"]) for i in range(1, 7)]
+
+if __name__ == "__main__":
+    robot = KUKA(ROBOT_IP)
+    while True:
+        msg = robot.read("$POS_ACT")
+        msg2  = robot.read("$AXIS_ACT")
+        print(parse_kuka_coords(msg))
+        print(parse_kuka_joints(msg2))
+        time.sleep(1)
+        # print(msg)

@@ -6,6 +6,20 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
 var points = [];
+const pathObjects = [];
+const pathGroup = new THREE.Group();
+pathGroup.rotation.x = -Math.PI / 2;
+scene.add(pathGroup);
+
+const animationMarker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.002, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+);
+animationMarker.visible = false;
+let animationPath = [];
+let animationIndex = 0;
+let animationFrameCounter = 0;
+const FRAMES_PER_STEP = 4;
 
 const canvas = document.querySelector('.gcodeCanvas');
 const renderer = new THREE.WebGLRenderer({canvas, antialias: true });
@@ -26,6 +40,7 @@ scene.add(axesHelper);
 
 const light = new THREE.AmbientLight(0xffffff,1);
 scene.add(light);
+pathGroup.add(animationMarker);
 
 const fileInput = document.getElementById('fileInput');
 const uploadButton = document.getElementById('upload-btn');
@@ -114,7 +129,24 @@ async function uploadGcodeAndDownload(file) {
     link.remove();
     URL.revokeObjectURL(downloadUrl);
 
+    const segments = await requestToolpathSegments();
+    drawToolpathSegments(segments);
+
     return downloadName;
+}
+
+async function requestToolpathSegments() {
+    const resp = await fetch("/api/toolpath");
+    if (!resp.ok) {
+        const message = await resp.text();
+        throw new Error(message || "Failed to fetch toolpath");
+    }
+    return resp.json();
+}
+
+function clearCanvasPaths() {
+    pathObjects.forEach(obj => pathGroup.remove(obj));
+    pathObjects.length = 0;
 }
 
 function drawGCode(gcode) {
@@ -122,31 +154,96 @@ function drawGCode(gcode) {
     let lastPos = new THREE.Vector3(0, 0, 0);
     const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
 
+    points = [];
+    clearCanvasPaths();
+
     lines.forEach(line => {
-    line = line.trim();
-    if (!line.startsWith('G')) return;
+        line = line.trim();
+        if (!line.startsWith('G')) return;
 
-    const matchX = line.match(/X(-?\d+(\.\d+)?)/);
-    const matchY = line.match(/Y(-?\d+(\.\d+)?)/);
-    const matchZ = line.match(/Z(-?\d+(\.\d+)?)/);
+        const matchX = line.match(/X(-?\d+(\.\d+)?)/);
+        const matchY = line.match(/Y(-?\d+(\.\d+)?)/);
+        const matchZ = line.match(/Z(-?\d+(\.\d+)?)/);
 
-    const newPos = lastPos.clone();
+        const newPos = lastPos.clone();
 
-    if (matchX) newPos.x = parseFloat(matchX[1])/1000;
-    if (matchY) newPos.y = parseFloat(matchY[1])/1000;
-    if (matchZ) newPos.z = parseFloat(matchZ[1])/1000;
+        if (matchX) newPos.x = parseFloat(matchX[1]) / 1000;
+        if (matchY) newPos.y = parseFloat(matchY[1]) / 1000;
+        if (matchZ) newPos.z = parseFloat(matchZ[1]) / 1000;
 
-    if (line.startsWith('G0') || line.startsWith('G1')) {
-        points.push(lastPos.clone(), newPos.clone());
-    }
+        if (line.startsWith('G0') || line.startsWith('G1')) {
+            points.push(lastPos.clone(), newPos.clone());
+        }
 
-    lastPos = newPos;
+        lastPos = newPos;
     });
-//   console.log(points);
+
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const path = new THREE.LineSegments(geometry, material);
-    path.rotation.x = -Math.PI / 2;
-    scene.add(path);
+    pathGroup.add(path);
+    pathObjects.push(path);
+}
+
+function createVectorFromPoint(point) {
+    return new THREE.Vector3(point[0] / 1000, point[1] / 1000, point[2] / 1000);
+}
+
+function drawToolpathSegments(segments) {
+    clearCanvasPaths();
+    segments?.forEach(segment => {
+        if (!segment?.points || segment.points.length < 2) return;
+        const points3d = segment.points.map(p => createVectorFromPoint(p));
+        const geometry = new THREE.BufferGeometry().setFromPoints(points3d);
+        const color = segment.torch_state === "TRUE" ? 0xff0000 : 0x0000ff;
+        const material = new THREE.LineBasicMaterial({ color });
+        const line = new THREE.Line(geometry, material);
+        pathGroup.add(line);
+        pathObjects.push(line);
+    });
+    setupToolpathAnimation(segments);
+}
+
+function setupToolpathAnimation(segments) {
+    animationPath.length = 0;
+    if (!segments?.length) {
+        animationMarker.visible = false;
+        return;
+    }
+
+    segments.forEach(segment => {
+        segment?.points?.forEach(pt => {
+            animationPath.push({
+                position: createVectorFromPoint(pt),
+                torch: segment.torch_state
+            });
+        });
+    });
+
+    if (animationPath.length) {
+        animationIndex = 0;
+        animationMarker.position.copy(animationPath[0].position);
+        animationMarker.material.color.set(animationPath[0].torch === "TRUE" ? 0x00ff00 : 0x0000ff);
+        animationMarker.visible = true;
+    } else {
+        animationMarker.visible = false;
+    }
+}
+
+function updateToolpathAnimation() {
+    if (!animationPath.length) {
+        animationMarker.visible = false;
+        return;
+    }
+
+    animationFrameCounter = (animationFrameCounter + 1) % FRAMES_PER_STEP;
+    if (animationFrameCounter !== 0) {
+        return;
+    }
+
+    animationIndex = (animationIndex + 1) % animationPath.length;
+    const next = animationPath[animationIndex];
+    animationMarker.position.copy(next.position);
+    animationMarker.material.color.set(next.torch === "TRUE" ? 0x00ff00 : 0x0000ff);
 }
 
 function resizeRendererToCanvas() {
@@ -163,6 +260,7 @@ function resizeRendererToCanvas() {
 function animate() {
     resizeRendererToCanvas();
     controls.update();
+    updateToolpathAnimation();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
 }
