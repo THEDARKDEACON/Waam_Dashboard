@@ -37,6 +37,7 @@ const voltage_data = document.getElementById("voltage_data");
 const wfs_data = document.getElementById("WFS_data");
 
 const joint_values = document.querySelectorAll(".joint-angles");
+const cart_values = document.querySelectorAll(".coordinates")
 const jogButtons = document.querySelectorAll(".jog_buttons");
 let activeJogAxis = jogButtons.length ? jogButtons[0].textContent.trim() : "Z";
 

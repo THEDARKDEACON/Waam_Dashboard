@@ -306,41 +306,48 @@ def run_program_local():
     if len(toolpath_segments) == 0:
         return
     
-    for segment in toolpath_segments:
-        torch_state = segment["torch_state"]
-        points = segment["points"]
-    
-        batch_size = len(points)
+    current_robot = get_robot()
+    current_robot.write("gMode", 2)
+    current_robot.write("gSegments", len(toolpath_segments))
+    try:
+        for segment in toolpath_segments:
+            torch_state = segment["torch_state"]
+            points = segment["points"]
+            print(points)
+            batch_size = len(points)
 
-        try:
-            current_robot = get_robot()
-            current_robot.write("gMode", 2)
             current_robot.write("gBatchSize", batch_size)
-
+            
             for i, p in enumerate(points, start=1):
                 kuka_pos = (
                     f"{{X {p[0]},Y {p[1]},Z {p[2]},"
                     f"A 0,B 0,C 0}}"
                 )
                 current_robot.write(f"gBatch[{i}]", kuka_pos)
-
-            current_robot.write("gNewBatch", True)
-
-            # Wait for robot to finish
+            
+            # wait for robot to finish sent layer
             while True:
-                done = current_robot.read("gProgramDone")
-                if done == "TRUE":
+                layer_done = current_robot.read("gLayerDone")
+                if layer_done == "TRUE":
+                    print("layer done")
                     break
-                time.sleep(0.1)
 
-            current_robot.write("gNewBatch", False)
-            current_robot.write("gMode", 1)
 
-            socketio.emit("program_done")
-        except ConnectionError as exc:
-            print("Run program failed:", exc)
-        except Exception as exc:
-            print("Unexpected error during run_program:", exc)
+        # Wait for robot to finish
+        while True:
+            done = current_robot.read("gProgramDone")
+            if done == "TRUE":
+                print("program done")
+                break
+            time.sleep(0.1)
+
+        current_robot.write("gMode", 1)
+
+        socketio.emit("program_done")
+    except ConnectionError as exc:
+        print("Run program failed:", exc)
+    except Exception as exc:
+        print("Unexpected error during run_program:", exc)
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
