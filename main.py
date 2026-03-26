@@ -302,37 +302,38 @@ def run_program_local():
       ...
     ]
     """
-    
     if len(toolpath_segments) == 0:
         return
     
+    # get the maximum gBatchSize
+    max_batch_size = 0
+    for segment in toolpath_segments:
+        seg_length = len(segment["points"])
+        if seg_length > max_batch_size:
+            max_batch_size = seg_length
+    
     current_robot = get_robot()
     current_robot.write("gMode", 2)
+    current_robot.write("gNewBatch", "FALSE")
     current_robot.write("gSegments", len(toolpath_segments))
     try:
-        for segment in toolpath_segments:
+        for j, segment in enumerate(toolpath_segments, start=1):
             torch_state = segment["torch_state"]
             points = segment["points"]
-            print(points)
             batch_size = len(points)
-
-            current_robot.write("gBatchSize", batch_size)
+            # write the batch sizes
+            current_robot.write(f"gBatchSizes[{j}]", batch_size)
             
             for i, p in enumerate(points, start=1):
                 kuka_pos = (
                     f"{{X {p[0]},Y {p[1]},Z {p[2]},"
                     f"A 0,B 0,C 0}}"
                 )
-                current_robot.write(f"gBatch[{i}]", kuka_pos)
-            
-            # wait for robot to finish sent layer
-            while True:
-                layer_done = current_robot.read("gLayerDone")
-                if layer_done == "TRUE":
-                    print("layer done")
-                    break
-
-
+                current_robot.write(f"gProgram[{j}, {i}]", kuka_pos)
+                
+        # move to running program after writing the program
+        time.sleep(1)
+        current_robot.write("gNewBatch", "TRUE")
         # Wait for robot to finish
         while True:
             done = current_robot.read("gProgramDone")
