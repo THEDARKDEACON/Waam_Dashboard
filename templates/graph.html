@@ -1,0 +1,634 @@
+<!-- 
+for future
+
+Add x axis annotation (a chart element) for torch on and off
+horizontal alignment!!
+export to japhet's format, only in this format is the start truncated
+3d plot ya instantaneous voltage current wfs at each point
+modify cleaning algorithms to use torch state to know when to calculate
+preserve data on reload
+offset timestamp using first torch on time
+
+done Button to toggle between smoothed and not smoothed plot
+done Try change spikes to null?
+done Disable mouse scroll gestures
+done export processed data as csv
+done export graphs as image(s)
+
+-->
+
+<!-- bug tracker
+scale is not retained when switching graph modes
+disable export png button while rendering is still going on
+fix annotation graph drifting from the actual torch status graph
+Create a time column with seconds, not strings (brian's side)
+Create a torch column
+file url
+
+fixed when home button is clicked, tooltips double in count
+fixed clicking legend has some bugs too
+fixed legend entries double when toggling graph modes!
+
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- use version 3.41.0 specifically, the latest one (at the time of writing) has a bug:
+      the tooltip entries are doubled when you toggle a series using the legend-->
+    <script src="{{url_for('static', filename='Scripts/lib/apexcharts.min.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/lib/html2canvas.js')}}" type="module" defer></script>
+
+    <title>Data Plots</title>
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Roboto);
+
+        body {
+            font-family: Roboto, sans-serif;
+        }
+
+        #chart-temp,
+        #chart-volt,
+        #chart-cur,
+        #chart-wfs,
+        #chart-torch-on {
+            max-width: 900px;
+            margin: 25px auto;
+        }
+
+        #toggle-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        #toggle-btn {
+            background: #247BA0;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        #toggle-btn:hover {
+            transform: translateY(-1px);
+            background: #1a5b77;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="toggle-container">
+        <button id="toggle-btn" onclick="toggleDataView()">Cleaned</button>
+        <button id="toggle-btn" onclick="exportCombinedCSV()">Export CSV</button>
+        <button id="toggle-btn" onclick="exportCurrentPNG()">Export PNG</button>
+    </div>
+
+    <div id="chart-area">
+        <div id="chart-temp"></div>
+        <div id="chart-volt"></div>
+        <div id="chart-cur"></div>
+        <div id="chart-wfs"></div>
+        <div id="chart-torch-on"></div>
+    </div>
+
+
+    <script>
+
+        const c = {
+            red: "#FF1654",
+            blue: "#247BA0",
+            yellow: "#FEB019",
+            green: "#00E396",
+            purple: "#775DD0",
+
+            strokeWidth: 3,
+            markerSize: 0,
+            // lineType: "smooth",
+            lineType: "straight",
+
+            // timeColumnName: "Time (S)",
+            // T1ColumnName: "T1(°C),Raw",
+            // T2ColumnName: "T2(°C),Raw",
+            // T3ColumnName: "T3(°C),Raw",
+            // T4ColumnName: "T4(°C),Raw",
+            // voltageColumnName: "V(Volts),Raw",
+            // currentColumnName: "C(Amps),Raw",
+            // WFSColumnName: "E(mm/S),Raw",
+            // torchOnColumnName: "Torch-on",
+
+            timeColumnName: "time",
+            T1ColumnName: "T1",
+            T2ColumnName: "T2",
+            T3ColumnName: "T3",
+            T4ColumnName: "T4",
+            voltageColumnName: "V",
+            currentColumnName: "C",
+            WFSColumnName: "E",
+            torchOnColumnName: "Torch-on",
+
+            voltageRMSthresh: 3,
+            currentRMSthresh: 10,
+
+            cleanedFlag: 'cleaned',
+            rawFlag: 'raw',
+        };
+
+
+        var columns = [];
+        var allData = [];
+        var ann = [];
+
+
+        function renderChart(seriesData, chartID, yAxisTitle = "Value") {
+            let xAxisTitle = c.timeColumnName;
+            let group = "sync-charts";
+
+            var options = {
+                chart: {
+                    id: chartID.replace("#", ""),
+                    group: group,
+                    height: 250,
+                    type: "line",
+                    stacked: false,
+
+                    zoom: {
+                        enabled: false
+                    },
+
+                    animations: {
+                        enabled: true,
+                        speed: 350,
+                        animateGradually: {
+                            enabled: false,
+                        },
+                        dynamicAnimation: {
+                            enabled: true,
+                            speed: 350
+                        }
+                    }
+
+                },
+
+                dataLabels: {
+                    enabled: false
+                },
+
+                colors: [c.red, c.blue, c.green, c.yellow, c.purple].slice(0, seriesData.length),
+
+                series: seriesData,
+
+                stroke: {
+                    width: seriesData.map(() => c.strokeWidth),
+                    curve: c.lineType
+                },
+                markers: {
+                    size: c.markerSize,
+                },
+                xaxis: {
+                    type: "numeric",
+                    tickAmount: 11,
+
+                    title: {
+                        text: xAxisTitle
+                    }
+                },
+                yaxis: {
+
+                    min: undefined,
+                    max: undefined,
+                    stepSize: undefined,
+
+                    decimalsInFloat: false,
+                    forceNiceScale: true,
+
+                    labels: {
+                        minWidth: 120,
+                        maxWidth: 120,
+                    },
+
+                    axisTicks: {
+                        show: true
+                    },
+                    axisBorder: {
+                        show: true,
+                    },
+
+                    title: {
+                        text: yAxisTitle,
+                        rotate: 0,
+                        offsetX: -30
+                    }
+                },
+
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    x: {
+                        show: false
+                    }
+                },
+                legend: {
+                    show: true,
+                    position: "right",
+                    width: 150,
+                    offsetY: 100
+                },
+
+                grid: {
+                    xaxis: {
+                        lines: {
+                            show: true
+                        }
+                    },
+                    yaxis: {
+                        lines: {
+                            show: true
+                        }
+                    },
+                },
+
+                annotations: {
+                    xaxis: ann,
+                }
+            };
+            if (dashboard.charts[chartID]) {
+               dashboard.charts[chartID].destroy();
+            }
+
+            var chart = new ApexCharts(document.querySelector(chartID), options);
+            chart.render();
+            return chart;
+        }
+
+        const dashboard = {
+            currentView: c.cleanedFlag,
+            charts: {},
+            data: {
+                raw: {},
+                cleaned: {}
+            }
+        };
+
+        function toggleDataView() {
+            const btn = document.getElementById("toggle-btn");
+
+            if (dashboard.currentView === c.rawFlag) {
+                dashboard.currentView = c.cleanedFlag;
+                btn.innerText = c.cleanedFlag;
+            } else {
+                dashboard.currentView = c.rawFlag;
+                btn.innerText = c.rawFlag;
+            }
+
+            Object.keys(dashboard.charts).forEach(id => {
+                const newData = dashboard.data[dashboard.currentView][id];
+                if (newData) {
+                    dashboard.charts[id].updateOptions({ series: newData }, false, true, false);
+                }
+            });
+        }
+
+        function hampelFilter(data, windowSize = 20, nSigmas = 2) {
+
+            const cleaned = [...data];
+            const halfWindow = Math.floor(windowSize / 2);
+
+            for (let i = halfWindow; i < data.length - halfWindow; i++) {
+                const window = data.slice(i - halfWindow, i + halfWindow + 1);
+
+                const sortedWindow = [...window].sort((a, b) => a - b);
+                const median = sortedWindow[Math.floor(window.length / 2)];
+
+                // Median Absolute Deviation
+                const ad = window.map(v => Math.abs(v - median));
+                const sortedAd = ad.sort((a, b) => a - b);
+                const mad = sortedAd[Math.floor(ad.length / 2)];
+
+                const sigma = 1.4826 * mad;
+
+                if (Math.abs(data[i] - median) > nSigmas * sigma) {
+                    cleaned[i] = median;
+                }
+            }
+            return cleaned;
+        }
+
+        function simpleDeleteFilter(data, thresh = 8) {
+            const cleaned = [...data];
+
+            for (let i = 0; i < data.length; i++) {
+                var diff = data[i] - data[i - 1];
+
+                if (Math.abs(diff) > thresh) {
+                    cleaned[i] = null;
+                }
+            }
+            return cleaned;
+        }
+
+        function rmsAvg(data, threshold) {
+            const result = new Array(data.length).fill(0);
+            let i = 0;
+
+            while (i < data.length) {
+                if (Math.abs(data[i]) > threshold) {
+                    let start = i;
+                    let sumSquares = 0;
+
+                    while (i < data.length && Math.abs(data[i]) > threshold) {
+                        sumSquares += Math.pow(data[i], 2);
+                        i++;
+                    }
+
+                    let end = i;
+                    let segmentLength = end - start;
+
+                    let rmsValue = Math.sqrt(sumSquares / segmentLength);
+
+                    for (let j = start; j < end; j++) {
+                        result[j] = rmsValue;
+                    }
+                } else {
+                    result[i] = data[i];
+                    i++;
+                }
+            }
+            return result;
+        }
+
+
+        function simpleWFSFilter(data, threshold = 10) {
+            const cleaned = [...data];
+
+            for (let i = 1; i < data.length; i++) {
+                const delta = Math.abs(data[i] - data[i - 1]);
+
+                if (delta > threshold) {
+                    cleaned[i] = cleaned[i + 1];
+                }
+            }
+            return cleaned;
+        }
+
+
+        function medianWFSFilter(data, windowSize = 15, baselineMax = 10, iqrK = 1.5) {
+            const half = Math.floor(windowSize / 2);
+            const result = [...data];
+
+            function median(arr) {
+                const sorted = [...arr].sort((a, b) => a - b);
+                const mid = Math.floor(sorted.length / 2);
+                return sorted.length % 2 !== 0
+                    ? sorted[mid]
+                    : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+            }
+
+            function iqrBounds(arr) {
+                const sorted = [...arr].sort((a, b) => a - b);
+                const q1 = sorted[Math.floor(sorted.length * 0.25)];
+                const q3 = sorted[Math.floor(sorted.length * 0.75)];
+                const iqr = q3 - q1;
+                return q3 + iqrK * iqr;   // upper bound only — spikes are always high
+            }
+
+            const runs = [];
+            let runStart = null;
+            for (let i = 0; i <= data.length; i++) {
+                const isOn = i < data.length && data[i] > baselineMax;
+                if (isOn && runStart === null) {
+                    runStart = i;
+                } else if (!isOn && runStart !== null) {
+                    runs.push({ start: runStart, end: i - 1 });
+                    runStart = null;
+                }
+            }
+
+            for (const { start, end } of runs) {
+                const runValues = data.slice(start, end + 1);
+                const runMedian = median(runValues);
+                const upperBound = iqrBounds(runValues);
+
+                for (let i = start; i <= end; i++) {
+                    const isSpike = data[i] > upperBound;
+
+                    if (!isSpike) {
+                        result[i] = data[i];
+                        continue;
+                    }
+
+                    // replace with sliding median
+                    const localStart = i - half;
+                    const localEnd = i + half;
+                    const isEdge = localStart < start || localEnd > end;
+
+                    result[i] = isEdge
+                        ? runMedian
+                        : median(data.slice(localStart, localEnd + 1));
+                }
+            }
+
+            return result;
+        }
+
+
+        function createAnnotations(torchStatus) {
+            const timeArray = columns[c.timeColumnName];
+            const annotations = [];
+            let segStart = null;
+
+            for (let i = 0; i <= torchStatus.length; i++) {
+                const isOn = i < torchStatus.length && (torchStatus[i] === 1 || torchStatus[i] === "1" || torchStatus[i] === true);
+
+                if (isOn && segStart === null) {
+                    segStart = i;
+                } else if (!isOn && segStart !== null) {
+                    const xVal = parseFloat(timeArray[segStart]);
+                    const x2Val = parseFloat(timeArray[i - 1]);
+                    
+                    annotations.push({
+                        x: xVal,
+                        x2: x2Val,
+                        fillColor: '#447BA0',
+                        borderColor: '#000',
+                        opacity: 0.2,
+                    });
+                    segStart = null;
+                }
+            }
+
+            return annotations;
+        }
+
+
+        function exportCombinedCSV() {
+            console.log("Exporting to CSV...");
+            timeArray = columns[c.timeColumnName];
+
+            const rawContent = allData.find(d => d.type === "raw").content;
+            const cleanedContent = allData.find(d => d.type === "cleaned").content;
+
+            let headers = ["Time (S)"];
+
+            Object.values(rawContent).flat().forEach(series => headers.push(series.name));
+            Object.values(cleanedContent).flat().forEach(series => headers.push(series.name));
+
+            const csvRows = [headers.join(",")];
+
+            for (let i = 0; i < timeArray.length; i++) {
+                let row = [timeArray[i]];
+
+                Object.values(rawContent).flat().forEach(series => {
+                    row.push(series.data[i] ?? "");
+                });
+
+                Object.values(cleanedContent).flat().forEach(series => {
+                    row.push(series.data[i] ?? "");
+                });
+
+                csvRows.push(row.join(","));
+            }
+
+            const csvString = csvRows.join("\n");
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute("href", url);
+            link.setAttribute("download", "all-data-" + dateSuffix() + ".csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportCurrentPNG() {
+            console.log("Exporting to PNG...");
+            html2canvas(document.querySelector("#chart-area"), {
+                scale: 3, // increase to increase output resolution
+                logging: false,
+                useCORS: true,
+                allowTaint: false,
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = "all-" + (dashboard.currentView === c.rawFlag ? "raw" : "cleaned") + "-data-" + dateSuffix() + ".png";
+                link.style.visibility = 'hidden';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+
+        function dateSuffix() {
+
+            const now = new Date();
+
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(-2);
+
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const hString = String(hours).padStart(2, '0');
+
+            return `${day}-${month}-${year}_${hString}-${minutes}${ampm}`;
+        }
+
+
+        function mapToXY(seriesList, timeArray) {
+            return seriesList.map(s => ({
+                name: s.name,
+                data: s.data.map((val, i) => ({
+                    x: parseFloat(timeArray[i]),
+                    y: val
+                }))
+            }));
+        }
+
+        function main(results) {
+            const rows = results.data;
+            if (!rows || rows.length === 0) return;
+
+            columns = rows.reduce((acc, row) => {
+                Object.keys(row).forEach((key) => {
+                    if (!acc[key]) {
+                        acc[key] = [];
+                    }
+                    acc[key].push(row[key]);
+                });
+                return acc;
+            }, {});
+
+            const timeArray = columns[c.timeColumnName];
+
+            const rawData = {
+                "#chart-temp": mapToXY([
+                    { name: "T1 (Raw)", data: columns[c.T1ColumnName] },
+                    { name: "T3 (Raw)", data: columns[c.T3ColumnName] },
+                    { name: "T4 (Raw)", data: columns[c.T4ColumnName] }
+                ], timeArray),
+                "#chart-volt": mapToXY([{ name: "Voltage (V Raw)", data: columns[c.voltageColumnName] }], timeArray),
+                "#chart-cur": mapToXY([{ name: "Current (A Raw)", data: columns[c.currentColumnName] }], timeArray),
+                "#chart-wfs": mapToXY([{ name: "WFS (mm/s Raw)", data: columns[c.WFSColumnName] }], timeArray),
+                "#chart-torch-on": mapToXY([{ name: "Torch (Raw)", data: columns[c.torchOnColumnName] }], timeArray)
+            };
+
+            const cleanedData = {
+                "#chart-temp": mapToXY([
+                    { name: "T1 (Filtered)", data: hampelFilter(columns[c.T1ColumnName]) },
+                    { name: "T3 (Filtered)", data: hampelFilter(columns[c.T3ColumnName]) },
+                    { name: "T4 (Filtered)", data: hampelFilter(columns[c.T4ColumnName]) },
+                ], timeArray),
+                "#chart-volt": mapToXY([{ name: "Voltage (V RMS)", data: rmsAvg(columns[c.voltageColumnName], c.voltageRMSthresh) }], timeArray),
+                "#chart-cur": mapToXY([{ name: "Current (A RMS)", data: rmsAvg(columns[c.currentColumnName], c.currentRMSthresh) }], timeArray),
+                "#chart-wfs": mapToXY([{ name: "WFS (mm/s Trunc.)", data: medianWFSFilter(columns[c.WFSColumnName]) }], timeArray),
+            };
+
+            dashboard.data.raw = rawData;
+            dashboard.data.cleaned = cleanedData;
+
+            allData = [
+                { type: "raw", content: rawData },
+                { type: "cleaned", content: cleanedData }
+            ];
+
+            ann = createAnnotations(columns[c.torchOnColumnName]);
+
+            dashboard.charts["#chart-temp"] = renderChart(cleanedData["#chart-temp"], "#chart-temp", "Temp (°C)");
+            dashboard.charts["#chart-volt"] = renderChart(cleanedData["#chart-volt"], "#chart-volt", "Voltage (V)");
+            dashboard.charts["#chart-cur"] = renderChart(cleanedData["#chart-cur"], "#chart-cur", "Current (A)");
+            dashboard.charts["#chart-wfs"] = renderChart(cleanedData["#chart-wfs"], "#chart-wfs", "WFS (mm/S)");
+            dashboard.charts["#chart-torch-on"] = renderChart(rawData["#chart-torch-on"], "#chart-torch-on", "Torch state");
+        }
+
+
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'INITIAL_DATA') {
+                const payload = event.data.payload;
+                main({ data: payload });
+            }
+        });
+
+        window.onload = () => {
+            if (window.opener) {
+                window.opener.postMessage('GRAPH_READY', '*');
+            }
+        };
+
+
+    </script>
+
+</body>
+
+</html>

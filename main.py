@@ -42,6 +42,10 @@ pending_admin_request = None
 def index():
     return render_template("main.html")
 
+@app.route("/graph")
+def graph():
+    return render_template("graph.html")
+
 
 @app.route("/api/gcode", methods=["POST"])
 def upload_gcode():

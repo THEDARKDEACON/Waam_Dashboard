@@ -1,3 +1,4 @@
+// import {Papa } from "./lib/papaparse.min.js";
 // ===============================
 // GLOBAL STATE
 // ===============================
@@ -9,7 +10,7 @@ let sensors = null;
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 const MAX_RECONNECT_DELAY = 10000;
-const wsUrl = "ws://192.168.0.100:9900";
+const wsUrl = "ws://127.0.0.1:9900";
 
 // Logging state
 let isLogging = false;
@@ -18,7 +19,7 @@ let logBuffer = [];
 // ===============================
 // SOCKET.IO (UNCHANGED)
 // ===============================
-const socket = io("http://192.168.0.100:4900");
+const socket = io("http://127.0.0.1:4900");
 
 // ===============================
 // DOM ELEMENTS
@@ -77,6 +78,8 @@ const tempChart = new Chart(ctx, {
 // ===============================
 // WEBSOCKET CONNECTION
 // ===============================
+const torch_on = 0;
+let time = 0;
 function connectSensors() {
     console.log("Connecting to sensor WebSocket...");
 
@@ -89,6 +92,7 @@ function connectSensors() {
 
     sensors.onmessage = (event) => {
         sensor_data = JSON.parse(event.data);
+        // console.log("Received sensor data:", sensor_data);
 
         // UI updates
         current_data.textContent = sensor_data.C;
@@ -116,6 +120,7 @@ function connectSensors() {
 
         // Logging
         if (isLogging) {
+            time = logBuffer.length + 1; // simple incremental time for x-axis in CSV
             logBuffer.push([
                 new Date().toISOString(),
                 sensor_data.T1,
@@ -124,7 +129,9 @@ function connectSensors() {
                 sensor_data.T4,
                 sensor_data.E,
                 sensor_data.V,
-                sensor_data.C
+                sensor_data.C,
+                torch_on,
+                time
             ]);
         }
     };
@@ -198,7 +205,7 @@ logButton.addEventListener("click", () => {
 function exportCSV() {
     if (logBuffer.length === 0) return;
 
-    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C"];
+    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C", "Torch-on", "time"];
     const rows = [header, ...logBuffer];
     const csv = rows.map(r => r.join(",")).join("\n");
 
@@ -214,6 +221,8 @@ function exportCSV() {
 function browserDownload(csv) {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
+    console.log("Generated CSV URL:", url);
+    openPlot(url);
 
     const a = document.createElement("a");
     a.href = url;
@@ -222,7 +231,35 @@ function browserDownload(csv) {
 
     URL.revokeObjectURL(url);
 }
+// const url2 = "./sensor_log_1774515236476.csv";
+function openPlot(url) {
+    Papa.parse(url, {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        beforeFirstChunk: function () {
+            console.log("Fetching data...");
+        },
 
+
+        complete: function (results) {
+            const plotWindow = window.open('graph');
+
+            window.addEventListener('message', (event) => {
+                if (event.data === 'GRAPH_READY') {
+                    plotWindow.postMessage({
+                        type: 'INITIAL_DATA',
+                        payload: results.data
+                    }, '*');
+                }
+            }, { once: true });
+        },
+
+        error: function (error) {
+            console.error("Error parsing remote file:", error);
+        }
+    });
+}
 
 // ===============================
 // SOCKET.IO EVENTS (UNCHANGED)
