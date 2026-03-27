@@ -144,13 +144,13 @@ def broadcast_admin_state():
 
 def update_robot_status(online: bool):
     global robot_online
-    if robot_online != online:
-        robot_online = online
-        socketio.emit("robot_status", {"online": robot_online})
+    # if robot_online != online:
+    #     robot_online = online
+    socketio.emit("robot_status", {"online": online})
 
 
 def has_admin_access(sid: str) -> bool:
-    return current_admin_sid is None or current_admin_sid == sid
+    return current_admin_sid == sid
 
 # ---------------- Robot State Stream ----------------
 def stream_joint_states():
@@ -159,10 +159,12 @@ def stream_joint_states():
             current_robot = get_robot()
             msg = current_robot.read("$AXIS_ACT")
             cart = current_robot.read("$POS_ACT")
+            torch_state = int(current_robot.read("$OUT[1]")=="TRUE")
             angles = parse_kuka_joints(msg)
             coords = parse_kuka_coords(cart)
             socketio.emit("joint_angles", angles)
             socketio.emit("cartesian_coords", coords)
+            socketio.emit("torch_state", torch_state)
             update_robot_status(True)
         except ConnectionError as exc:
             print("Robot stream connection lost:", exc)
@@ -307,6 +309,9 @@ def jog_stop():
 # ---------------- Program Execution ----------------
 @socketio.on("run_program")
 def run_program(data):
+    if not has_admin_access(request.sid):
+        socketio.emit("admin_denied", {"message": "Claim admin to jog"}, to=request.sid)
+        return
     """
     data = [
       {X,Y,Z,A,B,C},

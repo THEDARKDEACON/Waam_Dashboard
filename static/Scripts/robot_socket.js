@@ -10,7 +10,7 @@ let sensors = null;
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 const MAX_RECONNECT_DELAY = 10000;
-const wsUrl = "ws://127.0.0.1:9900";
+const wsUrl = "ws://192.168.0.100:9900";
 
 // Logging state
 let isLogging = false;
@@ -142,7 +142,7 @@ function updateChart(sensor_data) {
 // ===============================
 // WEBSOCKET CONNECTION
 // ===============================
-const torch_on = 0;
+let torch_on = 0;
 let time = 0;
 function connectSensors() {
     console.log("Connecting to sensor WebSocket...");
@@ -318,6 +318,10 @@ socket.on("connect", () => {
     socket.emit("start_stream");
     console.log("Connected to backend");
 });
+
+socket.on("torch_state", (torch_state) => {
+    torch_on = torch_state
+})
 
 socket.on("joint_angles", (angles2) => {
     angles = angles2;
