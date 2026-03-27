@@ -1,99 +1,138 @@
+console.log("Materials script loaded");
 
- console.log("Materials script loaded");
-  // Simulated data source
-  let materials = [
-    { name: "AISI4043 0.9mm", current: 140, voltage: 20, wire: 4, travel: 4 },
-    { name: "AISI4043 1.2mm", current: 150, voltage: 25, wire: 5, travel: 4 }
-  ];
+let materials = [];
 
-  const tableBody = document.getElementById("materials-body");
-  const addBtn = document.getElementById("add-btn");
+const tableBody = document.getElementById("materials-body");
+const addBtn = document.getElementById("add-btn");
+const weldSelect = document.getElementById("weld-profile");
 
-  function renderMaterials() {
-    tableBody.innerHTML = "";
-    materials.forEach((m, index) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td><input type="text" value="${m.name}" disabled></td>
-        <td><input type="text" value="${m.current}" disabled></td>
-        <td><input type="text" value="${m.voltage}" disabled></td>
-        <td><input type="text" value="${m.wire}" disabled></td>
-        <td><input type="text" value="${m.travel}" disabled></td>
-        <td><button class="remove-btn" data-index="${index}">Remove</button></td>
-      `;
-      tableBody.appendChild(row);
-    });
+const newInputs = {
+  name: document.getElementById("new-name"),
+  current: document.getElementById("new-current"),
+  voltage: document.getElementById("new-voltage"),
+  wire: document.getElementById("new-wire"),
+  travel: document.getElementById("new-travel")
+};
 
-    // Attach remove handlers
-    document.querySelectorAll(".remove-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const index = e.target.dataset.index;
-        materials.splice(index, 1);
-        renderMaterials();
-      });
-    });
+function renderMaterials() {
+  tableBody.innerHTML = "";
+  if (!materials.length) {
+    tableBody.innerHTML = "<tr><td colspan='6'>No materials configured.</td></tr>";
+    return;
   }
 
-  addBtn.addEventListener("click", () => {
-    const name = document.getElementById("new-name").value.trim();
-    const current = +document.getElementById("new-current").value;
-    const voltage = +document.getElementById("new-voltage").value;
-    const wire = +document.getElementById("new-wire").value;
-    const travel = +document.getElementById("new-travel").value;
-
-    if (!name || !current || !voltage || !wire || !travel) {
-      alert("Please fill all fields.");
-      return;
-    }
-
-    materials.push({ name, current, voltage, wire, travel });
-    renderMaterials();
-
-    // Clear inputs
-    document.querySelectorAll(".add-row input").forEach(i => i.value = "");
+  materials.forEach((m, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><input type="text" value="${m.name}" disabled></td>
+      <td><input type="text" value="${m.current}" disabled></td>
+      <td><input type="text" value="${m.voltage}" disabled></td>
+      <td><input type="text" value="${m.wire}" disabled></td>
+      <td><input type="text" value="${m.travel}" disabled></td>
+      <td><button class="remove-btn" data-index="${index}">Remove</button></td>
+    `;
+    tableBody.appendChild(row);
   });
 
-  renderMaterials();
+  document.querySelectorAll(".remove-btn").forEach(btn => {
+    btn.addEventListener("click", async (event) => {
+      const index = Number(event.target.dataset.index);
+      if (Number.isFinite(index) && materials[index]) {
+        materials.splice(index, 1);
+        renderMaterials();
+        await persistMaterials();
+        populateWeldSelect();
+      }
+    });
+  });
+}
 
-
-const weldSelect = document.getElementById("weld-profile");
-weldSelect.innerHTML = "";
-
-if (typeof materials !== "undefined" && materials.length > 0) {
+function populateWeldSelect() {
+  if (!weldSelect) return;
+  weldSelect.innerHTML = "";
   const manualOption = document.createElement("option");
   manualOption.textContent = "Use Manual Settings";
   weldSelect.appendChild(manualOption);
 
+  if (!materials.length) {
+    const empty = document.createElement("option");
+    empty.textContent = "No materials found";
+    empty.disabled = true;
+    weldSelect.appendChild(empty);
+    return;
+  }
+
   materials.forEach(mat => {
-    const opt = document.createElement("option");
-    opt.textContent = mat.name;
-    weldSelect.appendChild(opt);
+    const option = document.createElement("option");
+    option.textContent = mat.name;
+    weldSelect.appendChild(option);
   });
-} else {
-  weldSelect.innerHTML = "<option>No materials found</option>";
 }
 
-// File upload functionality
+async function fetchMaterials() {
+  try {
+    const resp = await fetch("/api/materials");
+    if (!resp.ok) throw new Error("Failed to load materials");
+    materials = await resp.json();
+  } catch (err) {
+    console.error("Error loading materials", err);
+    materials = [];
+  } finally {
+    renderMaterials();
+    populateWeldSelect();
+  }
+}
+
+async function persistMaterials() {
+  try {
+    await fetch("/api/materials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ materials })
+    });
+  } catch (err) {
+    console.error("Failed to save materials", err);
+  }
+}
+
+addBtn.addEventListener("click", async () => {
+  const payload = {
+    name: newInputs.name.value.trim(),
+    current: Number(newInputs.current.value),
+    voltage: Number(newInputs.voltage.value),
+    wire: Number(newInputs.wire.value),
+    travel: Number(newInputs.travel.value)
+  };
+
+  if (!payload.name || !payload.current || !payload.voltage || !payload.wire || !payload.travel) {
+    alert("Please fill all fields.");
+    return;
+  }
+
+  materials.push(payload);
+  renderMaterials();
+  await persistMaterials();
+  populateWeldSelect();
+
+  Object.values(newInputs).forEach(input => {
+    input.value = "";
+  });
+});
+
+fetchMaterials();
+
+// File upload feedback (unused backend)
 const uploadBtn = document.getElementById("upload-btn");
 const fileInput = document.getElementById("fileInput");
 const fileStatus = document.getElementById("file-status");
 
-uploadBtn.addEventListener("click", () => fileInput.click());
+uploadBtn?.addEventListener("click", () => fileInput?.click());
 
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  if (file) {
+fileInput?.addEventListener("change", () => {
+  const file = fileInput.files?.[0];
+  if (file && fileStatus) {
     fileStatus.innerHTML = `
       File <span style="color: blue; text-decoration: underline;">${file.name}</span> uploaded successfully
     `;
   }
 });
-
-// // Buttons (placeholders for future actions)
-// document.getElementById("visualize-btn").addEventListener("click", () => {
-//   alert("Visualizing path...");
-// });
-
-// document.getElementById("simulate-btn").addEventListener("click", () => {
-//   alert("Simulation started...");
-// });

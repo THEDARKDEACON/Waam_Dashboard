@@ -2,6 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 
 import io
+import json
 import zipfile
 import math
 import threading
@@ -37,6 +38,26 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 robot_online = False
 current_admin_sid = None
 pending_admin_request = None
+MATERIALS_FILE = Path(__file__).resolve().parent / "materials.json"
+materials_lock = threading.Lock()
+
+
+def load_materials():
+    if not MATERIALS_FILE.exists():
+        return []
+    try:
+        with materials_lock, open(MATERIALS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def save_materials(materials):
+    with materials_lock, open(MATERIALS_FILE, "w", encoding="utf-8") as f:
+        json.dump(materials, f, indent=2)
 
 @app.route("/")
 def index():
@@ -82,6 +103,36 @@ def get_toolpath():
     if not toolpath_segments:
         return jsonify({"error": "no toolpath generated"}), 404
     return jsonify(toolpath_segments)
+
+
+@app.route("/api/materials", methods=["GET"])
+def api_get_materials():
+    materials = load_materials()
+    print("Loaded materials:", materials)
+    return jsonify(materials)
+
+
+@app.route("/api/materials", methods=["POST"])
+def api_set_materials():
+    payload = request.get_json(silent=True)
+    if not payload or "materials" not in payload:
+        return jsonify({"error": "materials list required"}), 400
+    materials = payload["materials"]
+    if not isinstance(materials, list):
+        return jsonify({"error": "materials must be an array"}), 400
+    cleaned = []
+    for item in materials:
+        if not isinstance(item, dict):
+            continue
+        cleaned.append({
+            "name": str(item.get("name", "")).strip(),
+            "current": float(item.get("current", 0)),
+            "voltage": float(item.get("voltage", 0)),
+            "wire": float(item.get("wire", 0)),
+            "travel": float(item.get("travel", 0))
+        })
+    save_materials(cleaned)
+    return jsonify({"status": "ok", "materials": cleaned})
 
 
 def broadcast_admin_state():
