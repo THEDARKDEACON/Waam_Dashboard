@@ -237,10 +237,13 @@ logButton.addEventListener("click", () => {
         isLogging = true;
         logBuffer = [];
         logButton.textContent = "Stop Logging";
+        // change button color to red
+        logButton.style.backgroundColor = "#e74c3c";
         console.log("Logging started");
     } else {
         isLogging = false;
         logButton.textContent = "Start Logging";
+        logButton.style.removeProperty("background-color");
         console.log("Logging stopped");
         exportCSV();
     }
