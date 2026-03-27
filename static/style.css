@@ -409,12 +409,23 @@ footer.app-footer {
 }
 
 .temp-display-canvas {
-  background-color: #fff;
+  background-color: var(--secondary-foreground);
   width: 100%;
+  color: var(--primary-font);
   /* height: 100%; */
   border-radius: 6px;
-  border: 1px solid #999;
-  position: relative;
+  /* border: 1px solid #999; */
+  /* position: relative; */
+}
+
+.temp-display-canvas2 {
+  background-color: var(--secondary-foreground);
+  width: 100%;
+  color: var(--primary-font);
+  /* height: 100%; */
+  border-radius: 6px;
+  /* border: 1px solid #999; */
+  /* position: relative; */
 }
 
 #visualizer {

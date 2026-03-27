@@ -43,37 +43,101 @@ const jogButtons = document.querySelectorAll(".jog_buttons");
 let activeJogAxis = jogButtons.length ? jogButtons[0].textContent.trim() : "Z";
 
 const ctx = document.querySelector(".temp-display-canvas").getContext("2d");
+const ctx2 = document.querySelector(".temp-display-canvas2").getContext("2d");
+
 const temp_label = document.getElementById("temp_label");
 
 // ===============================
 // CHART SETUP
 // ===============================
-const MAX_POINTS = 16;
+const MAX_POINTS = 40;
+const temperaturePalette = ["#f96332", "#f1c40f", "#3498db", "#2ecc71"];
 
 const chartData = {
     labels: [],
-    datasets: [
-        { label: "T1", data: [], borderWidth: 2 },
-        { label: "T2", data: [], borderWidth: 2 },
-        { label: "T3", data: [], borderWidth: 2 },
-        { label: "T4", data: [], borderWidth: 2 }
-    ]
+    datasets: temperaturePalette.map((color, index) => ({
+        label: `T${index + 1}`,
+        data: [],
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: false,
+        spanGaps: true
+    }))
 };
 
-const tempChart = new Chart(ctx, {
-    type: "line",
-    data: chartData,
-    options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            x: { type: "linear", title: { display: true, text: "Time (s)" } },
-            y: { title: { display: true, text: "Temperature" } }
-        },
-        plugins: { legend: { display: true } }
+const tempChart = drawChart(ctx, chartData);
+const tempChart2 = drawChart(ctx2, chartData);
+
+function drawChart(ctx, data) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, 180);
+    gradient.addColorStop(0, "rgba(255,255,255,0.35)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+
+    return new Chart(ctx, {
+        type: "line",
+        data,
+        options: {
+            animation: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            elements: {
+                line: {
+                    borderJoinStyle: "round"
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: "Time (s)" },
+                    ticks: { color: "#dddddd" }
+                },
+                y: {
+                    title: { display: true, text: "Temperature (°C)" },
+                    ticks: { color: "#dddddd" }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: "#ffffff" }
+                },
+                filler: {
+                    propagate: false
+                }
+            },
+            layout: {
+                padding: { top: 12, right: 8, bottom: 4, left: 8 }
+            },
+            backgroundColor: gradient
+        }
+    });
+}
+
+function updateChart(sensor_data) {
+    const label = sensor_data["Time(S)"] ?? new Date().toLocaleTimeString();
+    chartData.labels.push(label);
+
+    chartData.datasets.forEach((dataset, index) => {
+        const value = sensor_data[`T${index + 1}`];
+        dataset.data.push(typeof value === "number" ? value : null);
+    });
+
+    if (chartData.labels.length > MAX_POINTS) {
+        chartData.labels.shift();
+        chartData.datasets.forEach(ds => ds.data.shift());
     }
-});
+
+    const avgTemp = Math.round(chartData.datasets.reduce((sum, ds) => {
+        const last = ds.data[ds.data.length - 1];
+        return sum + (typeof last === "number" ? last : 0);
+    }, 0) / chartData.datasets.length);
+    temp_label.textContent = Number.isFinite(avgTemp) ? avgTemp : "--";
+
+    tempChart.update("none");
+    tempChart2.update("none");
+}
 
 // ===============================
 // WEBSOCKET CONNECTION
@@ -99,30 +163,13 @@ function connectSensors() {
         voltage_data.textContent = sensor_data.V;
         wfs_data.textContent = sensor_data.E;
 
-        chartData.labels.push(sensor_data["Time(S)"]);
-
-        const avgTemp = Math.round(
-            (sensor_data.T1 + sensor_data.T2 + sensor_data.T3 + sensor_data.T4) / 4
-        );
-        temp_label.textContent = avgTemp;
-
-        chartData.datasets[0].data.push(sensor_data.T1);
-        chartData.datasets[1].data.push(sensor_data.T2);
-        chartData.datasets[2].data.push(sensor_data.T3);
-        chartData.datasets[3].data.push(sensor_data.T4);
-
-        if (chartData.labels.length > MAX_POINTS) {
-            chartData.labels.shift();
-            chartData.datasets.forEach(ds => ds.data.shift());
-        }
-
-        tempChart.update("none");
+        updateChart(sensor_data);
 
         // Logging
         if (isLogging) {
             time = logBuffer.length + 1; // simple incremental time for x-axis in CSV
             logBuffer.push([
-                new Date().toISOString(),
+                new Date().toLocaleTimeString(),
                 sensor_data.T1,
                 sensor_data.T2,
                 sensor_data.T3,
