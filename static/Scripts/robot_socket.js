@@ -50,7 +50,7 @@ const temp_label = document.getElementById("temp_label");
 // ===============================
 // CHART SETUP
 // ===============================
-const MAX_POINTS = 40;
+const MAX_POINTS = 80;
 const temperaturePalette = ["#f96332", "#f1c40f", "#3498db", "#2ecc71"];
 
 const chartData = {
@@ -91,11 +91,11 @@ function drawChart(ctx, data) {
             scales: {
                 x: {
                     title: { display: true, text: "Time (s)" },
-                    ticks: { color: "#dddddd" }
+                    ticks: { color: "#ffffff" }
                 },
                 y: {
                     title: { display: true, text: "Temperature (°C)" },
-                    ticks: { color: "#dddddd" }
+                    ticks: { color: "#ffffff" }
                 }
             },
             plugins: {
@@ -120,7 +120,7 @@ function updateChart(sensor_data) {
     chartData.labels.push(label);
 
     chartData.datasets.forEach((dataset, index) => {
-        const value = sensor_data[`T${index + 1}`];
+        const value = Number(sensor_data[`T${index + 1}`]);
         dataset.data.push(typeof value === "number" ? value : null);
     });
 
@@ -169,16 +169,16 @@ function connectSensors() {
         if (isLogging) {
             time = logBuffer.length + 1; // simple incremental time for x-axis in CSV
             logBuffer.push([
-                new Date().toLocaleTimeString(),
-                sensor_data.T1,
-                sensor_data.T2,
-                sensor_data.T3,
-                sensor_data.T4,
-                sensor_data.E,
-                sensor_data.V,
-                sensor_data.C,
-                torch_on,
-                time
+                new Date().toISOString(),
+                Number(sensor_data.T1),
+                Number(sensor_data.T2),
+                Number(sensor_data.T3),
+                Number(sensor_data.T4),
+                Number(sensor_data.E),
+                Number(sensor_data.V),
+                Number(sensor_data.C),
+                Number(torch_on),
+                Number(time)
             ]);
         }
     };

@@ -1,14 +1,22 @@
 <!-- 
 for future
 
-Add x axis annotation (a chart element) for torch on and off
-horizontal alignment!!
-export to japhet's format, only in this format is the start truncated
 3d plot ya instantaneous voltage current wfs at each point
 modify cleaning algorithms to use torch state to know when to calculate
-preserve data on reload
-offset timestamp using first torch on time
+disable export png button while rendering is still going on
+loading animation for png export
+mix up the colours for the single-line plots
+exceptions to be shown on page, not console. detections for missing columns, empty rows, non-numeric values, empty columns, bad file type
+sample rate to be in editbox
 
+done preserve data on reload
+done add "raw/cleaned/sampled" text at the corner of the page
+done change the naming of the mode button 
+done change the order of the modes to raw->cleaned->sampled
+done Add x axis annotation (a chart element) for torch on and off
+done horizontal alignment!!
+done offset timestamp using first torch on time
+done export to japheth's format only in this format is the start truncated
 done Button to toggle between smoothed and not smoothed plot
 done Try change spikes to null?
 done Disable mouse scroll gestures
@@ -18,13 +26,13 @@ done export graphs as image(s)
 -->
 
 <!-- bug tracker
-scale is not retained when switching graph modes
-disable export png button while rendering is still going on
-fix annotation graph drifting from the actual torch status graph
-Create a time column with seconds, not strings (brian's side)
 Create a torch column
 file url
+import csv button (using raw-w-new-vars) does not work [on windows/on first try], [but drag and drop works?]
 
+fixed Create a time column with seconds, not strings (brian's side)
+fixed fix annotation graph drifting from the actual torch status graph
+fixed scale is not retained when switching graph modes
 fixed when home button is clicked, tooltips double in count
 fixed clicking legend has some bugs too
 fixed legend entries double when toggling graph modes!
@@ -40,6 +48,8 @@ fixed legend entries double when toggling graph modes!
       the tooltip entries are doubled when you toggle a series using the legend-->
     <script src="{{url_for('static', filename='Scripts/lib/apexcharts.min.js')}}" type="module" defer></script>
     <script src="{{url_for('static', filename='Scripts/lib/html2canvas.js')}}" type="module" defer></script>
+    <script src="{{url_for('static', filename='Scripts/lib/papaparse.min.js')}}" type="module" defer></script>
+
 
     <title>Data Plots</title>
     <style>
@@ -56,6 +66,9 @@ fixed legend entries double when toggling graph modes!
         #chart-torch-on {
             max-width: 900px;
             margin: 25px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
         }
 
         #toggle-container {
@@ -63,33 +76,90 @@ fixed legend entries double when toggling graph modes!
             top: 20px;
             right: 20px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        #toggle-btn {
+        .control-btn {
             background: #247BA0;
             color: white;
             border: none;
-            padding: 12px 24px;
+            width: 140px;
+            height: 45px;
             border-radius: 20px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
             font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        #toggle-btn:hover {
-            transform: translateY(-1px);
+        .control-btn:hover {
             background: #1a5b77;
+        }
+        
+        #view-indicator,
+        #view-indicator-prefix {
+            position: fixed;
+            left: 30px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        #view-indicator-prefix {
+            text-transform: none;
+            top: 30px;
+            font-size: 18px;
+            background: none;
+        }
+
+        #view-indicator {
+            top: 55px;
+        }
+
+        #dropzone-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(36, 123, 160, 0.9);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #dropzone-overlay.active {
+            opacity: 1;
         }
     </style>
 </head>
 
 <body>
+    <div id="dropzone-overlay">Drop CSV File Here</div>
+    <div id="view-indicator-prefix">Data source</div>
+    <div id="view-indicator">Raw</div>
 
     <div id="toggle-container">
-        <button id="toggle-btn" onclick="toggleDataView()">Cleaned</button>
-        <button id="toggle-btn" onclick="exportCombinedCSV()">Export CSV</button>
-        <button id="toggle-btn" onclick="exportCurrentPNG()">Export PNG</button>
+        <button id="toggle-view-btn" class="control-btn" onclick="toggleDataView()">Clean</button>
+        <button id="export-csv-btn" class="control-btn" onclick="exportActiveCSV()">Export CSV</button>
+        <button id="export-png-btn" class="control-btn" onclick="exportCurrentPNG()">Export PNG</button>
+
+        <button id="import-csv-btn" class="control-btn" onclick="triggerFilePicker()">Import CSV</button>
     </div>
 
     <div id="chart-area">
@@ -109,6 +179,7 @@ fixed legend entries double when toggling graph modes!
             yellow: "#FEB019",
             green: "#00E396",
             purple: "#775DD0",
+            annotationColour: '#447BA0',
 
             strokeWidth: 3,
             markerSize: 0,
@@ -125,7 +196,7 @@ fixed legend entries double when toggling graph modes!
             // WFSColumnName: "E(mm/S),Raw",
             // torchOnColumnName: "Torch-on",
 
-            timeColumnName: "time",
+            timeColumnName: "timestamp",
             T1ColumnName: "T1",
             T2ColumnName: "T2",
             T3ColumnName: "T3",
@@ -140,6 +211,8 @@ fixed legend entries double when toggling graph modes!
 
             cleanedFlag: 'cleaned',
             rawFlag: 'raw',
+            sampleFlag: 'sampled',
+            sampleInterval: 1.0, // seconds
         };
 
 
@@ -261,7 +334,7 @@ fixed legend entries double when toggling graph modes!
                 }
             };
             if (dashboard.charts[chartID]) {
-               dashboard.charts[chartID].destroy();
+                dashboard.charts[chartID].destroy();
             }
 
             var chart = new ApexCharts(document.querySelector(chartID), options);
@@ -270,29 +343,46 @@ fixed legend entries double when toggling graph modes!
         }
 
         const dashboard = {
-            currentView: c.cleanedFlag,
+            currentView: c.rawFlag,
             charts: {},
             data: {
                 raw: {},
-                cleaned: {}
+                cleaned: {},
+                sampled: {}
             }
         };
 
+        function updateViewIndicator() {
+            const el = document.getElementById("view-indicator");
+            if (el) el.innerText = dashboard.currentView;
+        }
+
         function toggleDataView() {
-            const btn = document.getElementById("toggle-btn");
+            const btn = document.getElementById("toggle-view-btn");
 
             if (dashboard.currentView === c.rawFlag) {
                 dashboard.currentView = c.cleanedFlag;
-                btn.innerText = c.cleanedFlag;
+                btn.innerText = "Sample";
+            } else if (dashboard.currentView === c.cleanedFlag) {
+                dashboard.currentView = c.sampleFlag;
+                btn.innerText = "Raw";
             } else {
                 dashboard.currentView = c.rawFlag;
-                btn.innerText = c.rawFlag;
+                btn.innerText = "Clean";
             }
 
+            updateViewIndicator();
+
+            const currentSet = dashboard.data[dashboard.currentView];
             Object.keys(dashboard.charts).forEach(id => {
-                const newData = dashboard.data[dashboard.currentView][id];
+                const newData = currentSet[id];
                 if (newData) {
-                    dashboard.charts[id].updateOptions({ series: newData }, false, true, false);
+                    dashboard.charts[id].updateOptions({
+                        series: newData,
+                        annotations: {
+                            xaxis: currentSet.annotations
+                        }
+                    }, false, true, false);
                 }
             });
         }
@@ -325,7 +415,7 @@ fixed legend entries double when toggling graph modes!
         function simpleDeleteFilter(data, thresh = 8) {
             const cleaned = [...data];
 
-            for (let i = 0; i < data.length; i++) {
+            for (let i = 1; i < data.length; i++) {
                 var diff = data[i] - data[i - 1];
 
                 if (Math.abs(diff) > thresh) {
@@ -373,7 +463,7 @@ fixed legend entries double when toggling graph modes!
                 const delta = Math.abs(data[i] - data[i - 1]);
 
                 if (delta > threshold) {
-                    cleaned[i] = cleaned[i + 1];
+                    cleaned[i] = cleaned[i - 1];
                 }
             }
             return cleaned;
@@ -439,9 +529,48 @@ fixed legend entries double when toggling graph modes!
             return result;
         }
 
+        function getSampledCols(cols, interval) {
+            const timeColName = c.timeColumnName;
 
-        function createAnnotations(torchStatus) {
-            const timeArray = columns[c.timeColumnName];
+            const firstTorchOnIndex = cols[c.torchOnColumnName].findIndex(v => v == 1 || v == "1");
+            const startIdx = firstTorchOnIndex === -1 ? 0 : firstTorchOnIndex;
+
+            // truncate all columns to start from torch-on
+            const truncatedCols = {};
+            for (let key in cols) {
+                truncatedCols[key] = cols[key].slice(startIdx);
+            }
+
+            const time = truncatedCols[timeColName];
+            if (!time || time.length === 0) return {};
+
+            const startTime = time[0];
+            const endTime = time[time.length - 1];
+            const sampledCols = {};
+            for (let key in truncatedCols) sampledCols[key] = [];
+
+            let currentRow = 0;
+            for (let targetTime = startTime; targetTime <= endTime; targetTime += interval) {
+                while (currentRow + 1 < time.length) {
+                    const currentDelta = Math.abs(time[currentRow] - targetTime);
+                    const nextDelta = Math.abs(time[currentRow + 1] - targetTime);
+                    if (nextDelta <= currentDelta) {
+                        currentRow++;
+                    } else {
+                        break;
+                    }
+                }
+                // Add the closest row to our sampled columns
+                for (let key in truncatedCols) {
+                    sampledCols[key].push(truncatedCols[key][currentRow]);
+                }
+            }
+            return sampledCols;
+        }
+
+
+        function createAnnotations(torchStatus, timeArray) {
+            if (!torchStatus || !timeArray) return [];
             const annotations = [];
             let segStart = null;
 
@@ -451,13 +580,13 @@ fixed legend entries double when toggling graph modes!
                 if (isOn && segStart === null) {
                     segStart = i;
                 } else if (!isOn && segStart !== null) {
-                    const xVal = parseFloat(timeArray[segStart]);
-                    const x2Val = parseFloat(timeArray[i - 1]);
-                    
+                    const xVal = timeArray[segStart];
+                    const x2Val = timeArray[i - 1];
+
                     annotations.push({
                         x: xVal,
                         x2: x2Val,
-                        fillColor: '#447BA0',
+                        fillColor: c.annotationColour,
                         borderColor: '#000',
                         opacity: 0.2,
                     });
@@ -469,29 +598,38 @@ fixed legend entries double when toggling graph modes!
         }
 
 
-        function exportCombinedCSV() {
-            console.log("Exporting to CSV...");
-            timeArray = columns[c.timeColumnName];
+        function exportActiveCSV() {
+            const view = dashboard.currentView;
+            console.log(`Exporting ${view} data to CSV...`);
 
-            const rawContent = allData.find(d => d.type === "raw").content;
-            const cleanedContent = allData.find(d => d.type === "cleaned").content;
+            const currentMeta = dashboard.data[view];
+            if (!currentMeta) return;
 
+            // Collect all chart series for this view
+            const seriesList = [];
+            Object.keys(currentMeta).forEach(key => {
+                if (key.startsWith("#")) {
+                    currentMeta[key].forEach(s => seriesList.push(s));
+                }
+            });
+
+            if (seriesList.length === 0) return;
+
+            // Build headers
             let headers = ["Time (S)"];
-
-            Object.values(rawContent).flat().forEach(series => headers.push(series.name));
-            Object.values(cleanedContent).flat().forEach(series => headers.push(series.name));
-
+            seriesList.forEach(s => headers.push(s.name));
             const csvRows = [headers.join(",")];
 
-            for (let i = 0; i < timeArray.length; i++) {
-                let row = [timeArray[i]];
+            // Use the first series to determine the number of rows
+            const rowCount = seriesList[0].data.length;
 
-                Object.values(rawContent).flat().forEach(series => {
-                    row.push(series.data[i] ?? "");
-                });
+            for (let i = 0; i < rowCount; i++) {
+                // Get the time from the first series
+                let row = [seriesList[0].data[i].x];
 
-                Object.values(cleanedContent).flat().forEach(series => {
-                    row.push(series.data[i] ?? "");
+                // Get the Y values from all series
+                seriesList.forEach(s => {
+                    row.push(s.data[i]?.y ?? "");
                 });
 
                 csvRows.push(row.join(","));
@@ -503,7 +641,7 @@ fixed legend entries double when toggling graph modes!
             const url = URL.createObjectURL(blob);
 
             link.setAttribute("href", url);
-            link.setAttribute("download", "all-data-" + dateSuffix() + ".csv");
+            link.setAttribute("download", `${view}-data-${dateSuffix()}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -547,18 +685,44 @@ fixed legend entries double when toggling graph modes!
 
 
         function mapToXY(seriesList, timeArray) {
+            if (!timeArray) return [];
             return seriesList.map(s => ({
                 name: s.name,
-                data: s.data.map((val, i) => ({
-                    x: parseFloat(timeArray[i]),
+                data: (s.data || []).map((val, i) => ({
+                    x: timeArray[i],
                     y: val
                 }))
             }));
         }
 
-        function main(results) {
-            const rows = results.data;
+        const cacheKey = "waam_cache";
+
+        function persistData(data) {
+            try {
+                sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            } catch (e) {
+                console.warn("Session storage unavailable or quota exceeded", e);
+            }
+        }
+
+        function restoreData() {
+            const cache = sessionStorage.getItem(cacheKey);
+            if (cache) {
+                console.log("Restoring data from session storage...");
+                main({ data: JSON.parse(cache) }, true);
+                return true;
+            }
+            return false;
+        }
+
+        function main(results, wasRestored = false) {
+            let rows = results.data;
             if (!rows || rows.length === 0) return;
+
+            if (!wasRestored) persistData(rows);
+
+            // filter out empty rows
+            rows = rows.filter(r => r && Object.keys(r).length > 0);
 
             columns = rows.reduce((acc, row) => {
                 Object.keys(row).forEach((key) => {
@@ -570,7 +734,29 @@ fixed legend entries double when toggling graph modes!
                 return acc;
             }, {});
 
-            const timeArray = columns[c.timeColumnName];
+            // parse and replace timestamp column
+            const tsCol = c.timeColumnName;
+            if (columns[tsCol] && columns[tsCol].length > 0) {
+                const firstTs = new Date(columns[tsCol][0]).getTime() / 1000;
+                columns[tsCol] = columns[tsCol].map(v => (new Date(v).getTime() / 1000) - firstTs);
+            }
+
+            const timeArray = columns[tsCol];
+
+            const cleanedCols = {
+                [c.timeColumnName]: timeArray,
+                [c.torchOnColumnName]: columns[c.torchOnColumnName],
+                [c.T1ColumnName]: hampelFilter(columns[c.T1ColumnName]),
+                [c.T2ColumnName]: hampelFilter(columns[c.T2ColumnName]),
+                [c.T3ColumnName]: hampelFilter(columns[c.T3ColumnName]),
+                [c.T4ColumnName]: hampelFilter(columns[c.T4ColumnName]),
+                [c.voltageColumnName]: rmsAvg(columns[c.voltageColumnName], c.voltageRMSthresh),
+                [c.currentColumnName]: rmsAvg(columns[c.currentColumnName], c.currentRMSthresh),
+                [c.WFSColumnName]: medianWFSFilter(columns[c.WFSColumnName])
+            };
+
+            const sampledCols = getSampledCols(cleanedCols, c.sampleInterval);
+            const sampledTime = (sampledCols[c.timeColumnName] || []).map((v, i, arr) => v - arr[0]);
 
             const rawData = {
                 "#chart-temp": mapToXY([
@@ -586,30 +772,52 @@ fixed legend entries double when toggling graph modes!
 
             const cleanedData = {
                 "#chart-temp": mapToXY([
-                    { name: "T1 (Filtered)", data: hampelFilter(columns[c.T1ColumnName]) },
-                    { name: "T3 (Filtered)", data: hampelFilter(columns[c.T3ColumnName]) },
-                    { name: "T4 (Filtered)", data: hampelFilter(columns[c.T4ColumnName]) },
+                    { name: "T1 (Filtered)", data: cleanedCols[c.T1ColumnName] },
+                    { name: "T3 (Filtered)", data: cleanedCols[c.T3ColumnName] },
+                    { name: "T4 (Filtered)", data: cleanedCols[c.T4ColumnName] },
                 ], timeArray),
-                "#chart-volt": mapToXY([{ name: "Voltage (V RMS)", data: rmsAvg(columns[c.voltageColumnName], c.voltageRMSthresh) }], timeArray),
-                "#chart-cur": mapToXY([{ name: "Current (A RMS)", data: rmsAvg(columns[c.currentColumnName], c.currentRMSthresh) }], timeArray),
-                "#chart-wfs": mapToXY([{ name: "WFS (mm/s Trunc.)", data: medianWFSFilter(columns[c.WFSColumnName]) }], timeArray),
+                "#chart-volt": mapToXY([{ name: "Voltage (V RMS)", data: cleanedCols[c.voltageColumnName] }], timeArray),
+                "#chart-cur": mapToXY([{ name: "Current (A RMS)", data: cleanedCols[c.currentColumnName] }], timeArray),
+                "#chart-wfs": mapToXY([{ name: "WFS (mm/s Clipped)", data: cleanedCols[c.WFSColumnName] }], timeArray),
+                "#chart-torch-on": rawData["#chart-torch-on"],
             };
 
-            dashboard.data.raw = rawData;
-            dashboard.data.cleaned = cleanedData;
+            const sampledData = {
+                "#chart-temp": mapToXY([
+                    { name: "T1 (Sampled)", data: sampledCols[c.T1ColumnName] },
+                    { name: "T3 (Sampled)", data: sampledCols[c.T3ColumnName] },
+                    { name: "T4 (Sampled)", data: sampledCols[c.T4ColumnName] }
+                ], sampledTime),
+                "#chart-volt": mapToXY([{ name: "Voltage (V Sampled)", data: sampledCols[c.voltageColumnName] }], sampledTime),
+                "#chart-cur": mapToXY([{ name: "Current (A Sampled)", data: sampledCols[c.currentColumnName] }], sampledTime),
+                "#chart-wfs": mapToXY([{ name: "WFS (mm/s Sampled)", data: sampledCols[c.WFSColumnName] }], sampledTime),
+                "#chart-torch-on": mapToXY([{ name: "Torch (Sampled)", data: sampledCols[c.torchOnColumnName] }], sampledTime)
+            };
+
+            const rawAnn = createAnnotations(columns[c.torchOnColumnName], timeArray); // annotations for raw data
+            const sampledAnn = createAnnotations(sampledCols[c.torchOnColumnName], sampledTime); // annotations for sampled data
+
+            dashboard.data.raw = { ...rawData, annotations: rawAnn };
+            dashboard.data.cleaned = { ...cleanedData, annotations: rawAnn };
+            dashboard.data.sampled = { ...sampledData, annotations: sampledAnn };
 
             allData = [
                 { type: "raw", content: rawData },
-                { type: "cleaned", content: cleanedData }
+                { type: "cleaned", content: cleanedData },
+                { type: "sampled", content: sampledData }
             ];
 
-            ann = createAnnotations(columns[c.torchOnColumnName]);
 
-            dashboard.charts["#chart-temp"] = renderChart(cleanedData["#chart-temp"], "#chart-temp", "Temp (°C)");
-            dashboard.charts["#chart-volt"] = renderChart(cleanedData["#chart-volt"], "#chart-volt", "Voltage (V)");
-            dashboard.charts["#chart-cur"] = renderChart(cleanedData["#chart-cur"], "#chart-cur", "Current (A)");
-            dashboard.charts["#chart-wfs"] = renderChart(cleanedData["#chart-wfs"], "#chart-wfs", "WFS (mm/S)");
+            ann = rawAnn;
+
+            dashboard.charts["#chart-temp"] = renderChart(rawData["#chart-temp"], "#chart-temp", "Temp (°C)");
+            dashboard.charts["#chart-volt"] = renderChart(rawData["#chart-volt"], "#chart-volt", "Voltage (V)");
+            dashboard.charts["#chart-cur"] = renderChart(rawData["#chart-cur"], "#chart-cur", "Current (A)");
+            dashboard.charts["#chart-wfs"] = renderChart(rawData["#chart-wfs"], "#chart-wfs", "WFS (mm/S)");
             dashboard.charts["#chart-torch-on"] = renderChart(rawData["#chart-torch-on"], "#chart-torch-on", "Torch state");
+            
+            document.getElementById("toggle-view-btn").innerText = "Clean";
+            updateViewIndicator();
         }
 
 
@@ -621,10 +829,104 @@ fixed legend entries double when toggling graph modes!
         });
 
         window.onload = () => {
-            if (window.opener) {
+            // check if the page is being reloaded, or if the user opened it directly
+            const isReload = (performance.getEntriesByType("navigation")[0]?.type === "reload") ||
+             (performance.navigation?.type === 1);
+
+            if (isReload || !window.opener) {
+                restoreData();
+            } else {
                 window.opener.postMessage('GRAPH_READY', '*');
             }
         };
+
+        async function triggerFilePicker() {
+            try {
+                if (window.showOpenFilePicker) {
+                    const [fileHandle] = await window.showOpenFilePicker({
+                        startIn: 'Downloads',
+                        types: [{ description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }],
+                        multiple: false
+                    });
+                    const file = await fileHandle.getFile();
+                    handleFileImport(file);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.csv';
+                    input.onchange = e => handleFileImport(e.target.files[0]);
+                    input.click();
+                }
+            } catch (err) {
+                console.log("File selection cancelled", err);
+            }
+        }
+
+        function handleFileImport(file) {
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                beforeFirstChunk: function () {
+                    console.log("Fetching new data...");
+                },
+                complete: function (results) {
+                    console.log("Opening new tab...");
+                    const plotWindow = window.open('graph.html', 'WAAM_' + Date.now());
+
+                    window.addEventListener('message', (event) => {
+                        if (event.data === 'GRAPH_READY') {
+                            plotWindow.postMessage({
+                                type: 'INITIAL_DATA',
+                                payload: results.data
+                            }, '*');
+                        }
+                    }, { once: true });
+                },
+                error: function (error) {
+                    console.error("Error parsing file:", error);
+                    alert("Failed to parse CSV file.");
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('dropzone-overlay');
+
+            document.addEventListener("dragenter", (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.types.includes("Files")) {
+                    overlay.classList.add("active");
+                }
+            });
+
+            document.addEventListener("dragover", (e) => {
+                e.preventDefault(); 
+            });
+
+            document.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                if (e.relatedTarget === null || e.relatedTarget === document.documentElement) {
+                    overlay.classList.remove("active");
+                }
+            });
+
+            document.addEventListener("drop", (e) => {
+                e.preventDefault();
+                overlay.classList.remove("active");
+
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.toLowerCase().endsWith('.csv') || file.type === "text/csv") {
+                        handleFileImport(file);
+                    } else {
+                        alert("Please drop a valid .csv file.");
+                    }
+                }
+            });
+        });
 
 
     </script>
