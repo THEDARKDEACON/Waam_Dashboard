@@ -189,6 +189,17 @@ def on_connect():
 def start_stream():
     socketio.start_background_task(stream_joint_states)
 
+@socketio.on("TEMP_REACHED")
+def thresh_reached():
+    if not has_admin_access(request.sid):
+        socketio.emit("admin_denied", {"message": "Claim admin to jog"}, to=request.sid)
+        return
+    try:
+        current_robot = get_robot()
+        current_robot.write("TEMP_VAR", True)
+    except ConnectionError as exc:
+        print("Getting robot failed:", exc)
+
 
 @socketio.on("disconnect")
 def on_disconnect():

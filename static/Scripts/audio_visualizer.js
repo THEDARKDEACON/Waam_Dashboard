@@ -10,15 +10,24 @@ const socket = new WebSocket('ws://192.168.0.100:10000');
 socket.binaryType = 'arraybuffer';
 
 socket.onopen =() =>{
-    console.log("connected");
+    console.log("connected to audio");
 }
 
+const audioLength = 10
+const amplitudes = []
 socket.onmessage = (event) => {
     // Use Int16Array if your Python backend sends 16-bit PCM
     // Use Float32Array if your backend sends normalized floats
-    const rawData = new Int16Array(event.data);
-    // console.log(rawData)
-    draw(rawData);
+    // const rawData = new Int16Array(event.data);
+    // const data = event.data
+    console.log(event)
+    console.log(rawData)
+    amplitudes.append(data)
+    if(amplitudes.length > audioLength){
+        amplitudes.shift()
+        draw(data);
+    }
+
 };
 
 function draw(data) {
@@ -42,7 +51,8 @@ function draw(data) {
 
     for (let i = 0; i < data.length; i++) {
         // Normalize 16-bit int (-32768 to 32767) to canvas height
-        const amplitude = data[i] /5120;
+        // const amplitude = data[i] /5120;
+        const amplitude = data[i];
         const y = (amplitude * canvas.height / 2) + (canvas.height / 2);
 
         if (i === 0) ctx.moveTo(x, y);

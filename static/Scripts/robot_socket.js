@@ -5,6 +5,9 @@
 var angles = [0, -3.14/2, 3.14/2, 0, 0, 0];
 var sensor_data = null;
 
+var T1_temp = 0;
+const THRESHOLD = 70;
+
 // WebSocket state
 let sensors = null;
 let reconnectTimer = null;
@@ -50,7 +53,7 @@ const temp_label = document.getElementById("temp_label");
 // ===============================
 // CHART SETUP
 // ===============================
-const MAX_POINTS = 80;
+const MAX_POINTS = 320;
 const temperaturePalette = ["#f96332", "#f1c40f", "#3498db", "#2ecc71"];
 
 const chartData = {
@@ -129,10 +132,10 @@ function updateChart(sensor_data) {
         chartData.datasets.forEach(ds => ds.data.shift());
     }
 
-    const avgTemp = Math.round(chartData.datasets.reduce((sum, ds) => {
+    const avgTemp = Math.round((chartData.datasets.reduce((sum, ds) => {
         const last = ds.data[ds.data.length - 1];
         return sum + (typeof last === "number" ? last : 0);
-    }, 0) / chartData.datasets.length);
+    }, 0)+1) / (chartData.datasets.length-1));
     temp_label.textContent = Number.isFinite(avgTemp) ? avgTemp : "--";
 
     tempChart.update("none");
@@ -162,6 +165,12 @@ function connectSensors() {
         current_data.textContent = sensor_data.C;
         voltage_data.textContent = sensor_data.V;
         wfs_data.textContent = sensor_data.E;
+
+        T1_temp = sensor_data.T1
+        
+        if (T1_temp < THRESHOLD){
+            socket.emit("TEMP_REACHED");
+        }
 
         updateChart(sensor_data);
 
@@ -319,8 +328,19 @@ socket.on("connect", () => {
     console.log("Connected to backend");
 });
 
+let state = 0
 socket.on("torch_state", (torch_state) => {
     torch_on = torch_state
+    if (Number(torch_on) == 1 && state != torch_on){
+        state = torch_on
+        console.log("sending off")
+        sendCommand("f 1200")
+    }
+    else if(Number(torch_on) == 0 && state !=torch_on) {
+        state = torch_on
+        console.log("sending on")
+        sendCommand("f 100")
+    }
 })
 
 socket.on("joint_angles", (angles2) => {
