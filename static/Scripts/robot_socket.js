@@ -170,6 +170,7 @@ function connectSensors() {
         
         if (T1_temp < THRESHOLD){
             socket.emit("TEMP_REACHED");
+            console.log("Temperature reached | sending continue")
         }
 
         updateChart(sensor_data);
