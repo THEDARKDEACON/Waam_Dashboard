@@ -18,16 +18,19 @@ const amplitudes = []
 socket.onmessage = (event) => {
     // Use Int16Array if your Python backend sends 16-bit PCM
     // Use Float32Array if your backend sends normalized floats
-    // const rawData = new Int16Array(event.data);
-    // const data = event.data
-    console.log(event)
-    console.log(rawData)
-    amplitudes.append(data)
-    if(amplitudes.length > audioLength){
-        amplitudes.shift()
-        draw(data);
-    }
 
+    const data = new Int16Array(JSON.parse(event.data).audio);
+    // const data = new Int16Array([JSON.parse(event.data).kurtosis]);
+    
+    // amplitudes.push(data)
+
+    // if(amplitudes.length > audioLength){
+    //     amplitudes.shift()
+    // }
+    
+    // console.log(data)
+    // draw(amplitudes);
+    draw(data);
 };
 
 function draw(data) {
@@ -53,7 +56,7 @@ function draw(data) {
         // Normalize 16-bit int (-32768 to 32767) to canvas height
         // const amplitude = data[i] /5120;
         const amplitude = data[i];
-        const y = (amplitude * canvas.height / 2) + (canvas.height / 2);
+        const y = ((amplitude / 250 ) * (canvas.height / 2)) + (canvas.height / 2);
 
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
