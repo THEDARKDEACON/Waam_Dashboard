@@ -7,42 +7,40 @@ const ampKurtToggleBtn = document.getElementById('kurtosisBtn');
 canvas.width = canvas.offsetWidth;
 canvas.height = canvas.offsetHeight;
 
-// WebSocket setup
-const socket = new WebSocket('ws://192.168.0.100:10000');
-socket.binaryType = 'arraybuffer';
+const audioLength = 10;
+const kurtoses = [];
+let drawMode = "kurt";
 
-socket.onopen =() =>{
-    console.log("connected to audio");
+function initPlotterListener() {
+    console.log("Initializing audio plotter event listener...");
+
+    window.addEventListener('ws-plot-data', (event) => {
+        const { audio, kurtosis } = event.detail;
+
+        const data = new Int16Array(audio);
+        const kurtosisValue = new Float32Array([kurtosis]);
+        
+        kurtosisDisp.innerText = kurtosisValue[kurtosisValue.length - 1].toFixed(3);
+
+        if (drawMode == "kurt") {
+            kurtoses.push(kurtosisValue);
+
+            while (kurtoses.length > audioLength) {
+                kurtoses.shift();
+            }
+            
+            draw(kurtoses, 10);
+            // console.log("kurt");
+            // console.log(kurtoses.length);
+        } 
+        else if (drawMode == "amp") {
+            draw(data, 50000);
+            // console.log("amp");
+            // console.log(data.length);
+        }
+    });
 }
 
-const audioLength = 10
-const kurtoses = []
-let drawMode="kurt";
-socket.onmessage = (event) => {
-    // Use Int16Array if your Python backend sends 16-bit PCM
-    // Use Float32Array if your backend sends normalized floats
-
-    const data = new Int16Array(JSON.parse(event.data).audio);
-    const kurtosisValue = new Float32Array([JSON.parse(event.data).kurtosis]);
-    kurtosisDisp.innerText = kurtosisValue[kurtosisValue.length - 1].toFixed(3);
-
-    if (drawMode=="kurt"){
-        kurtoses.push(kurtosisValue)
-
-        if(kurtoses.length > audioLength){
-            kurtoses.shift()
-        }
-        
-        draw(kurtoses, 10);
-    }
-
-    else if (drawMode=="amp"){
-        
-        draw(data, 250);
-    }
-
-    
-};
 
 function draw(data, scale_divisor) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -78,6 +76,8 @@ function draw(data, scale_divisor) {
     ctx.stroke();
 }
 
+initPlotterListener();
+
 // Handle window resizing
 window.addEventListener('resize', () => {
     canvas.width = canvas.offsetWidth;
@@ -88,8 +88,10 @@ ampKurtToggleBtn.addEventListener("click", function(event) {
   
  if (drawMode=="kurt"){
     drawMode="amp";
+    ampKurtToggleBtn.textContent = "View Kurtosis"
  }
  else if (drawMode=="amp"){
     drawMode="kurt";
+    ampKurtToggleBtn.textContent = "View Amplitude";
  }
 });

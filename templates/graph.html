@@ -64,6 +64,8 @@ fixed legend entries double when toggling graph modes!
         #chart-volt,
         #chart-cur,
         #chart-wfs,
+        #chart-kurtosis,
+        #chart-db,
         #chart-torch-on {
             max-width: 900px;
             margin: 25px auto;
@@ -168,6 +170,8 @@ fixed legend entries double when toggling graph modes!
         <div id="chart-volt"></div>
         <div id="chart-cur"></div>
         <div id="chart-wfs"></div>
+        <div id="chart-kurtosis"></div>
+        <div id="chart-db"></div>
         <div id="chart-torch-on"></div>
     </div>
 
@@ -205,6 +209,8 @@ fixed legend entries double when toggling graph modes!
             voltageColumnName: "V",
             currentColumnName: "C",
             WFSColumnName: "E",
+            kurtosisColumnName: "kurtosis",
+            decibelColumnName: "db",
             torchOnColumnName: "Torch-on",
 
             voltageRMSthresh: 3,
@@ -753,7 +759,9 @@ fixed legend entries double when toggling graph modes!
                 [c.T4ColumnName]: hampelFilter(columns[c.T4ColumnName]),
                 [c.voltageColumnName]: rmsAvg(columns[c.voltageColumnName], c.voltageRMSthresh),
                 [c.currentColumnName]: rmsAvg(columns[c.currentColumnName], c.currentRMSthresh),
-                [c.WFSColumnName]: medianWFSFilter(columns[c.WFSColumnName])
+                [c.WFSColumnName]: medianWFSFilter(columns[c.WFSColumnName]),
+                [c.kurtosisColumnName]: columns[c.kurtosisColumnName],                
+                [c.decibelColumnName]: columns[c.decibelColumnName],
             };
 
             const sampledCols = getSampledCols(cleanedCols, c.sampleInterval);
@@ -768,6 +776,8 @@ fixed legend entries double when toggling graph modes!
                 "#chart-volt": mapToXY([{ name: "Voltage (V Raw)", data: columns[c.voltageColumnName] }], timeArray),
                 "#chart-cur": mapToXY([{ name: "Current (A Raw)", data: columns[c.currentColumnName] }], timeArray),
                 "#chart-wfs": mapToXY([{ name: "WFS (mm/s Raw)", data: columns[c.WFSColumnName] }], timeArray),
+                "#chart-kurtosis": mapToXY([{ name: "Kurtosis (Raw)", data: columns[c.kurtosisColumnName] }], timeArray),
+                "#chart-db": mapToXY([{ name: "Volume (db Raw)", data: columns[c.decibelColumnName] }], timeArray),
                 "#chart-torch-on": mapToXY([{ name: "Torch (Raw)", data: columns[c.torchOnColumnName] }], timeArray)
             };
 
@@ -780,6 +790,8 @@ fixed legend entries double when toggling graph modes!
                 "#chart-volt": mapToXY([{ name: "Voltage (V RMS)", data: cleanedCols[c.voltageColumnName] }], timeArray),
                 "#chart-cur": mapToXY([{ name: "Current (A RMS)", data: cleanedCols[c.currentColumnName] }], timeArray),
                 "#chart-wfs": mapToXY([{ name: "WFS (mm/s Clipped)", data: cleanedCols[c.WFSColumnName] }], timeArray),
+                "#chart-kurtosis": mapToXY([{ name: "Kurtosis (Raw)", data: columns[c.kurtosisColumnName] }], timeArray),
+                "#chart-db": mapToXY([{ name: "Volume (db Raw)", data: columns[c.decibelColumnName] }], timeArray),
                 "#chart-torch-on": rawData["#chart-torch-on"],
             };
 
@@ -792,6 +804,8 @@ fixed legend entries double when toggling graph modes!
                 "#chart-volt": mapToXY([{ name: "Voltage (V Sampled)", data: sampledCols[c.voltageColumnName] }], sampledTime),
                 "#chart-cur": mapToXY([{ name: "Current (A Sampled)", data: sampledCols[c.currentColumnName] }], sampledTime),
                 "#chart-wfs": mapToXY([{ name: "WFS (mm/s Sampled)", data: sampledCols[c.WFSColumnName] }], sampledTime),
+                "#chart-kurtosis": mapToXY([{ name: "Kurtosis (Raw)", data: columns[c.kurtosisColumnName] }], timeArray),
+                "#chart-db": mapToXY([{ name: "Volume (db Raw)", data: columns[c.decibelColumnName] }], timeArray),
                 "#chart-torch-on": mapToXY([{ name: "Torch (Sampled)", data: sampledCols[c.torchOnColumnName] }], sampledTime)
             };
 
@@ -815,6 +829,8 @@ fixed legend entries double when toggling graph modes!
             dashboard.charts["#chart-volt"] = renderChart(rawData["#chart-volt"], "#chart-volt", "Voltage (V)");
             dashboard.charts["#chart-cur"] = renderChart(rawData["#chart-cur"], "#chart-cur", "Current (A)");
             dashboard.charts["#chart-wfs"] = renderChart(rawData["#chart-wfs"], "#chart-wfs", "WFS (mm/S)");
+            dashboard.charts["#chart-kurtosis"] = renderChart(rawData["#chart-kurtosis"], "#chart-kurtosis", "Kurtosis");
+            dashboard.charts["#chart-db"] = renderChart(rawData["#chart-db"], "#chart-db", "Volume (db)");
             dashboard.charts["#chart-torch-on"] = renderChart(rawData["#chart-torch-on"], "#chart-torch-on", "Torch state");
             
             document.getElementById("toggle-view-btn").innerText = "Clean";
@@ -864,6 +880,7 @@ fixed legend entries double when toggling graph modes!
         }
 
         function handleFileImport(file) {
+            console.warn("There's a bug in this import workflow. Sometimes importing (from Windows) requires you to import twice. Fix it!!")
             if (!file) return;
 
             Papa.parse(file, {

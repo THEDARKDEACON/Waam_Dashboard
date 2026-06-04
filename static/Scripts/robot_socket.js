@@ -2,7 +2,7 @@
 // ===============================
 // GLOBAL STATE
 // ===============================
-var angles = [0, -3.14/2, 3.14/2, 0, 0, 0];
+var angles = [0, -3.14 / 2, 3.14 / 2, 0, 0, 0];
 var sensor_data = null;
 
 var T1_temp = 0;
@@ -135,7 +135,7 @@ function updateChart(sensor_data) {
     const avgTemp = Math.round((chartData.datasets.reduce((sum, ds) => {
         const last = ds.data[ds.data.length - 1];
         return sum + (typeof last === "number" ? last : 0);
-    }, 0)+1) / (chartData.datasets.length-1));
+    }, 0) + 1) / (chartData.datasets.length - 1));
     temp_label.textContent = Number.isFinite(avgTemp) ? avgTemp : "--";
 
     tempChart.update("none");
@@ -147,6 +147,8 @@ function updateChart(sensor_data) {
 // ===============================
 let torch_on = 0;
 let time = 0;
+let audioKurt = 0;
+let audioDB = 0;
 function connectSensors() {
     console.log("Connecting to sensor WebSocket...");
 
@@ -167,8 +169,8 @@ function connectSensors() {
         wfs_data.textContent = sensor_data.E;
 
         T1_temp = sensor_data.T1
-        
-        if (T1_temp < THRESHOLD){
+
+        if (T1_temp < THRESHOLD) {
             socket.emit("TEMP_REACHED");
             console.log("Temperature reached | sending continue")
         }
@@ -188,6 +190,8 @@ function connectSensors() {
                 Number(sensor_data.V),
                 Number(sensor_data.C),
                 Number(torch_on),
+                Number(audioKurt),
+                Number(audioDB),
                 Number(time)
             ]);
         }
@@ -213,7 +217,19 @@ function scheduleReconnect() {
     }, reconnectDelay);
 }
 
+
+function initAudioLogListener() {
+    console.log("Initializing audio logging event listener...");
+
+    window.addEventListener('ws-log-data', (event) => {
+        audioKurt = event.detail.kurtosis;
+        audioDB = event.detail.db;
+    });
+}
+
+
 connectSensors();
+initAudioLogListener();
 
 // ===============================
 // SAFE COMMAND SENDER
@@ -265,7 +281,7 @@ logButton.addEventListener("click", () => {
 function exportCSV() {
     if (logBuffer.length === 0) return;
 
-    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C", "Torch-on", "time"];
+    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C", "Torch-on", "kurtosis", "db", "time"];
     const rows = [header, ...logBuffer];
     const csv = rows.map(r => r.join(",")).join("\n");
 
@@ -332,12 +348,12 @@ socket.on("connect", () => {
 let state = 0
 socket.on("torch_state", (torch_state) => {
     torch_on = torch_state
-    if (Number(torch_on) == 1 && state != torch_on){
+    if (Number(torch_on) == 1 && state != torch_on) {
         state = torch_on
         console.log("sending off")
         sendCommand("f 1200")
     }
-    else if(Number(torch_on) == 0 && state !=torch_on) {
+    else if (Number(torch_on) == 0 && state != torch_on) {
         state = torch_on
         console.log("sending on")
         sendCommand("f 100")
