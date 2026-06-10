@@ -191,15 +191,25 @@ def start_stream():
 
 @socketio.on("TEMP_REACHED")
 def thresh_reached():
-    if not has_admin_access(request.sid):
-        socketio.emit("admin_denied", {"message": "Claim admin to jog"}, to=request.sid)
-        return
+    # if not has_admin_access(request.sid):
+    #     socketio.emit("admin_denied", {"message": "Claim admin to jog"}, to=request.sid)
+    #     return
     try:
         current_robot = get_robot()
         current_robot.write("TEMP_VAR", True)
     except ConnectionError as exc:
         print("Getting robot failed:", exc)
 
+@socketio.on("TEMP_NOT_REACHED")
+def thresh_reached():
+    # if not has_admin_access(request.sid):
+    #     socketio.emit("admin_denied", {"message": "Claim admin to jog"}, to=request.sid)
+    #     return
+    try:
+        current_robot = get_robot()
+        current_robot.write("TEMP_VAR", False)
+    except ConnectionError as exc:
+        print("Getting robot failed:", exc)
 
 @socketio.on("disconnect")
 def on_disconnect():

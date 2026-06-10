@@ -1,4 +1,4 @@
-const audiowsUrl = "ws://192.168.0.103:8765";
+const audiowsUrl = "ws://127.0.0.1:8765";
 const audio_socket = new WebSocket(audiowsUrl);
 
 const MAX_RECONNECT_DELAY = 10000;
@@ -7,7 +7,6 @@ let audioReconnectDelay = 1000;
 
 
 function initAudioWS() {
-
     audio_socket.onopen = () => {
         console.log('Audio WebSocket connected');
     };
@@ -15,7 +14,7 @@ function initAudioWS() {
     audio_socket.onmessage = (event) => {
         try {
             const payload = JSON.parse(event.data);
-            // console.log(event.data);
+            // console.log(payload);
 
             const plotEvent = new CustomEvent('ws-plot-data', {
                 detail: {
