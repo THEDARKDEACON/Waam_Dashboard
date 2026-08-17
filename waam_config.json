@@ -3,8 +3,8 @@
         "reach": 900,
         "payload": 6,
         "max_tcp_speed": 0.3,
-        "default_travel_speed": 0.005,
-        "default_weld_speed": 0.005,
+        "default_travel_speed": 0.0099,
+        "default_weld_speed": 0.0099,
         "min_weld_speed": 0.003,
         "max_weld_speed": 0.005
     },

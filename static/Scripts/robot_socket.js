@@ -18,6 +18,20 @@ const wsUrl = "ws://192.168.0.100:9900";
 // Logging state
 let isLogging = false;
 let logBuffer = [];
+// Latest contact-tip TCP from $POS_ACT (no tool offset).
+let lastTcp = { X: NaN, Y: NaN, Z: NaN, A: NaN, B: NaN, C: NaN };
+
+const LOG_HEADER = [
+    "timestamp", "Time_S",
+    "X", "Y", "Z", "A", "B", "RotC",
+    "T1", "T2", "T3", "T4",
+    "E", "V", "C", "Torch-on", "kurtosis", "db", "time"
+];
+
+function numOrBlank(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : "";
+}
 
 // ===============================
 // SOCKET.IO (UNCHANGED)
@@ -180,11 +194,18 @@ function connectSensors() {
 
         updateChart(sensor_data);
 
-        // Logging
+        // Logging: Pi serial JSON + latest contact-tip TCP in one row.
         if (isLogging) {
             time = logBuffer.length + 1; // simple incremental time for x-axis in CSV
             logBuffer.push([
                 new Date().toISOString(),
+                numOrBlank(sensor_data["Time(S)"]),
+                numOrBlank(lastTcp.X),
+                numOrBlank(lastTcp.Y),
+                numOrBlank(lastTcp.Z),
+                numOrBlank(lastTcp.A),
+                numOrBlank(lastTcp.B),
+                numOrBlank(lastTcp.C),
                 Number(sensor_data.T1),
                 Number(sensor_data.T2),
                 Number(sensor_data.T3),
@@ -284,8 +305,7 @@ logButton.addEventListener("click", () => {
 function exportCSV() {
     if (logBuffer.length === 0) return;
 
-    const header = ["timestamp", "T1", "T2", "T3", "T4", "E", "V", "C", "Torch-on", "kurtosis", "db", "time"];
-    const rows = [header, ...logBuffer];
+    const rows = [LOG_HEADER, ...logBuffer];
     const csv = rows.map(r => r.join(",")).join("\n");
 
     // pywebview-safe file save
@@ -371,6 +391,11 @@ socket.on("joint_angles", (angles2) => {
 });
 
 socket.on("cartesian_coords", (coords) => {
+    const nums = Array.from(coords, v => Number(v));
+    lastTcp = {
+        X: nums[0], Y: nums[1], Z: nums[2],
+        A: nums[3], B: nums[4], C: nums[5]
+    };
     for (let i = 0; i < coords.length; i++) {
         cart_values[i].value = Number(coords[i]).toFixed(2);
     }
