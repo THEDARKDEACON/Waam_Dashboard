@@ -1,1 +1,47 @@
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Environment / secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Runtime sensor exports
+sensor_log_*.csv
+logs/
+*.log
+
+# VTK / ParaView by-products
+*.vtp
+*.vti
+*.vtk
+*.pvd
+
+# Pipeline outputs (keep original .gcode in git)
+*_cleaned.gcode
+*_cleaned.src
+*_cleaned.dat
+*.bak
+*.bak.txt
+
+# Packaging
+dist/
+build/
+*.spec
