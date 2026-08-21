@@ -575,6 +575,7 @@ fixed legend entries double when toggling graph modes!
             const rawData = {
                 "#chart-temp": mapToXY([
                     { name: "T1 (Raw)", data: columns[c.T1ColumnName] },
+                    { name: "T2 (Raw)", data: columns[c.T2ColumnName] },
                     { name: "T3 (Raw)", data: columns[c.T3ColumnName] },
                     { name: "T4 (Raw)", data: columns[c.T4ColumnName] }
                 ], timeArray),
@@ -587,6 +588,7 @@ fixed legend entries double when toggling graph modes!
             const cleanedData = {
                 "#chart-temp": mapToXY([
                     { name: "T1 (Filtered)", data: hampelFilter(columns[c.T1ColumnName]) },
+                    { name: "T2 (Filtered)", data: hampelFilter(columns[c.T2ColumnName]) },
                     { name: "T3 (Filtered)", data: hampelFilter(columns[c.T3ColumnName]) },
                     { name: "T4 (Filtered)", data: hampelFilter(columns[c.T4ColumnName]) },
                 ], timeArray),

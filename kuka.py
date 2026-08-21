@@ -41,6 +41,7 @@ class KUKA(object):
                 return
             except (socket.error, OSError) as exc:
                 print(f"KUKA connection attempt {attempt} failed", exc)
+                self.handle_disconnect()
                 time.sleep(RETRY_DELAY)
         self.error_list(1)
 

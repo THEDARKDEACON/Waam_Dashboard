@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import io
 import json
 import zipfile
@@ -18,6 +15,7 @@ from jogProducer import JogProducer
 # ---------------- Robot Init ----------------
 robot = None
 toolpath_segments = []
+_stream_running = False
 
 
 def get_robot():
@@ -26,6 +24,16 @@ def get_robot():
         robot = KUKA(ROBOT_IP)
     return robot
 
+
+def drop_robot():
+    global robot
+    if robot is not None:
+        try:
+            robot.disconnect()
+        except Exception:
+            pass
+    robot = None
+
 # ---------------- Flask Init ----------------
 app = Flask(
     __name__,
@@ -33,13 +41,14 @@ app = Flask(
     template_folder="./templates"
 )
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 robot_online = False
 current_admin_sid = None
 pending_admin_request = None
 MATERIALS_FILE = Path(__file__).resolve().parent / "materials.json"
 materials_lock = threading.Lock()
+CSV_LOG_DIR = Path(__file__).resolve().parent
 
 
 def load_materials():
@@ -105,6 +114,25 @@ def get_toolpath():
     return jsonify(toolpath_segments)
 
 
+@app.route("/api/save_csv", methods=["POST"])
+def api_save_csv():
+    payload = request.get_json(silent=True) or {}
+    csv_text = payload.get("csv")
+    if not csv_text:
+        return jsonify({"error": "csv required"}), 400
+
+    raw_name = Path(str(payload.get("filename") or f"sensor_log_{int(time.time() * 1000)}.csv")).name
+    safe_name = "".join(c for c in raw_name if c.isalnum() or c in "._-")
+    if not safe_name.lower().endswith(".csv"):
+        safe_name += ".csv"
+
+    CSV_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = CSV_LOG_DIR / safe_name
+    csv_path.write_text(csv_text, encoding="utf-8")
+    print(f"[save_csv] {csv_path}")
+    return jsonify({"status": "ok", "path": str(csv_path)})
+
+
 @app.route("/api/materials", methods=["GET"])
 def api_get_materials():
     materials = load_materials()
@@ -168,8 +196,9 @@ def stream_joint_states():
             update_robot_status(True)
         except ConnectionError as exc:
             print("Robot stream connection lost:", exc)
+            drop_robot()
             update_robot_status(False)
-            time.sleep(1)
+            time.sleep(2)
             continue
         except Exception as e:
             print("Robot read error:", e)
@@ -187,6 +216,10 @@ def on_connect():
 
 @socketio.on("start_stream")
 def start_stream():
+    global _stream_running
+    if _stream_running:
+        return
+    _stream_running = True
     socketio.start_background_task(stream_joint_states)
 
 @socketio.on("TEMP_REACHED")
@@ -433,4 +466,4 @@ def run_program_local():
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=4900, debug=True, use_reloader=True)
+    socketio.run(app, host="0.0.0.0", port=4900, debug=False, use_reloader=False)

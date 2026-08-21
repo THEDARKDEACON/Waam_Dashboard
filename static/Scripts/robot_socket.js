@@ -146,11 +146,15 @@ function updateChart(sensor_data) {
         chartData.datasets.forEach(ds => ds.data.shift());
     }
 
-    const avgTemp = Math.round((chartData.datasets.reduce((sum, ds) => {
-        const last = ds.data[ds.data.length - 1];
-        return sum + (typeof last === "number" ? last : 0);
-    }, 0) + 1) / (chartData.datasets.length - 1));
-    temp_label.textContent = Number.isFinite(avgTemp) ? avgTemp : "--";
+    const samples = chartData.datasets
+        .map(ds => ds.data[ds.data.length - 1])
+        .filter(v => typeof v === "number" && Number.isFinite(v));
+    if (samples.length === 0) {
+        temp_label.textContent = "--";
+    } else {
+        const avgTemp = samples.reduce((sum, v) => sum + v, 0) / samples.length;
+        temp_label.textContent = avgTemp.toFixed(2);
+    }
 
     tempChart.update("none");
     tempChart2.update("none");
@@ -261,23 +265,27 @@ initAudioLogListener();
 function sendCommand(cmd) {
     if (sensors && sensors.readyState === WebSocket.OPEN) {
         sensors.send(cmd.endsWith("\n") ? cmd : cmd + "\n");
+        return true;
     }
+    console.warn("Sensor WebSocket not open; command not sent:", cmd);
+    return false;
 }
 
-// ===============================
-// BUTTON HANDLERS
-// ===============================
+function sendHold(letter, raw) {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    sendCommand(`${letter} ${n}`);
+}
+
 voltage_set_button.addEventListener("click", () => {
-    sendCommand(`s 1 ${voltage_set_value.value}`);
+    sendHold("V", voltage_set_value.value);
 });
 
 current_set_button.addEventListener("click", () => {
-    sendCommand(`s 2 ${current_set_value.value}`);
+    sendHold("C", current_set_value.value);
 });
 
-wfs_set_button.addEventListener("click", () => {
-    sendCommand(`s 3 ${wfs_set_value.value}`);
-});
+// WFS is recorded from the Hall sensor; the current knob sets feed on this cell.
 
 // ===============================
 // LOGGING TOGGLE
@@ -307,28 +315,25 @@ function exportCSV() {
 
     const rows = [LOG_HEADER, ...logBuffer];
     const csv = rows.map(r => r.join(",")).join("\n");
+    const filename = `sensor_log_${Date.now()}.csv`;
 
-    // pywebview-safe file save
-    if (window.pywebview && window.pywebview.api) {
-        window.pywebview.api.save_csv(csv);
-    } else {
-        // fallback for real browsers
-        browserDownload(csv);
-    }
+    fetch("/api/save_csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv, filename })
+    })
+        .then(r => r.json())
+        .then(info => console.log("CSV saved:", info.path || info))
+        .catch(err => console.error("Failed to save CSV:", err));
+
+    openPlotFromCsv(csv);
 }
 
-function browserDownload(csv) {
+function openPlotFromCsv(csv) {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    console.log("Generated CSV URL:", url);
     openPlot(url);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sensor_log_${Date.now()}.csv`;
-    a.click();
-
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 // const url2 = "./sensor_log_1774515236476.csv";
 function openPlot(url) {

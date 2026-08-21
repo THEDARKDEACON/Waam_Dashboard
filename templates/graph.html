@@ -770,6 +770,7 @@ fixed legend entries double when toggling graph modes!
             const rawData = {
                 "#chart-temp": mapToXY([
                     { name: "T1 (Raw)", data: columns[c.T1ColumnName] },
+                    { name: "T2 (Raw)", data: columns[c.T2ColumnName] },
                     { name: "T3 (Raw)", data: columns[c.T3ColumnName] },
                     { name: "T4 (Raw)", data: columns[c.T4ColumnName] }
                 ], timeArray),
@@ -784,6 +785,7 @@ fixed legend entries double when toggling graph modes!
             const cleanedData = {
                 "#chart-temp": mapToXY([
                     { name: "T1 (Filtered)", data: cleanedCols[c.T1ColumnName] },
+                    { name: "T2 (Filtered)", data: cleanedCols[c.T2ColumnName] },
                     { name: "T3 (Filtered)", data: cleanedCols[c.T3ColumnName] },
                     { name: "T4 (Filtered)", data: cleanedCols[c.T4ColumnName] },
                 ], timeArray),
@@ -798,6 +800,7 @@ fixed legend entries double when toggling graph modes!
             const sampledData = {
                 "#chart-temp": mapToXY([
                     { name: "T1 (Sampled)", data: sampledCols[c.T1ColumnName] },
+                    { name: "T2 (Sampled)", data: sampledCols[c.T2ColumnName] },
                     { name: "T3 (Sampled)", data: sampledCols[c.T3ColumnName] },
                     { name: "T4 (Sampled)", data: sampledCols[c.T4ColumnName] }
                 ], sampledTime),

@@ -98,18 +98,18 @@
                         <div class="control-box">
                           <div class="control-row">
                             <label>Current:</label>
-                            <input id ="current_set_value" type="number" value="0.00" />
-                            <button id="current_set_button">Set</button>
+                            <input id="current_set_value" type="number" step="any" value="0.00" />
+                            <button type="button" id="current_set_button">Set</button>
                           </div>
                           <div class="control-row">
                             <label>Voltage:</label>
-                            <input id ="voltage_set_value" type="number" value="0.00" />
-                            <button id="voltage_set_button">Set</button>
+                            <input id="voltage_set_value" type="number" step="any" value="0.00" />
+                            <button type="button" id="voltage_set_button">Set</button>
                           </div>
                           <div class="control-row">
                             <label>Wire Feed Speed:</label>
-                            <input id ="wfs_set_value" type="number" value="0.00" />
-                            <button id="wfs_set_button">Set</button>
+                            <input id="wfs_set_value" type="number" step="any" value="0.00" />
+                            <button type="button" id="wfs_set_button">Set</button>
                           </div>
                         </div>
                       </div>
@@ -135,7 +135,7 @@
                           <canvas class="temp-display-canvas"></canvas>
                         </div>
                         <p class="temperature-label">
-                          Average Temperature: <span id="temp_label">25.00</span>°C
+                          Average Temperature: <span id="temp_label">--</span>°C
                         </p>
                       </div>
                     </div>
